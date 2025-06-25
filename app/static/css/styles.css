@@ -1,0 +1,12 @@
+/* static/css/styles.css */
+.outgoing {
+    text-align: right;
+    margin-left: auto;
+    max-width: 80%;
+}
+
+.incoming {
+    text-align: left;
+    margin-right: auto;
+    max-width: 80%;
+}

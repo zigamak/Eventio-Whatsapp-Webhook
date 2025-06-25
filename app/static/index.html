@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Portal</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font: Inter for clean typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Apply Inter font to the body */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light grey background for the whole page */
+        }
+        /* Styling for chat message bubbles */
+        .message-bubble {
+            max-width: 75%; /* Messages don't span full width */
+            padding: 0.75rem 1rem;
+            border-radius: 1.25rem; /* Highly rounded corners */
+            margin-bottom: 0.5rem;
+            word-wrap: break-word; /* Prevents long words from overflowing */
+        }
+        /* Style for inbound messages (from WhatsApp users) */
+        .inbound {
+            background-color: #ffffff; /* White background */
+            color: #333333; /* Dark text */
+            align-self: flex-start; /* Aligned to the left */
+            border-bottom-left-radius: 0.25rem; /* Slightly less rounded on the bottom-left to indicate origin */
+        }
+        /* Style for outbound messages (sent from the portal) */
+        .outbound {
+            background-color: #dcf8c6; /* Light green background (WhatsApp-like) */
+            color: #333333; /* Dark text */
+            align-self: flex-end; /* Aligned to the right */
+            border-bottom-right-radius: 0.25rem; /* Slightly less rounded on the bottom-right */
+        }
+        /* Hide scrollbar for a cleaner look on conversation and message lists */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none; /* For Chrome, Safari, Opera */
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;  /* For IE and Edge */
+            scrollbar-width: none;  /* For Firefox */
+        }
+    </style>
+</head>
+<body class="flex h-screen antialiased text-gray-800">
+    <!-- Main container for the entire portal layout -->
+    <div class="flex flex-row h-full w-full overflow-hidden">
+        <!-- Left Panel: Conversations List -->
+        <div class="flex flex-col w-64 bg-white flex-shrink-0 rounded-lg shadow-md m-4">
+            <div class="flex flex-row items-center justify-center h-16 w-full">
+                <div class="text-lg font-bold text-gray-700">Conversations</div>
+            </div>
+            <div class="flex flex-col flex-grow p-4 overflow-y-auto scrollbar-hide" id="conversations-list">
+                <!-- Placeholder for dynamic content: Conversation items will be loaded here by JavaScript -->
+                <div class="text-center text-gray-500 mt-4">Loading conversations...</div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Chat Area (for selected conversation) -->
+        <div class="flex flex-col flex-auto h-full p-4">
+            <div class="flex flex-col flex-auto flex-shrink-0 rounded-lg bg-white shadow-md h-full">
+                <!-- Chat Header: Displays current conversation's name and WA ID -->
+                <div class="flex flex-row items-center justify-between h-16 w-full px-4 rounded-t-lg bg-gray-100 border-b border-gray-200">
+                    <div class="flex items-center">
+                        <div class="flex flex-col leading-tight">
+                            <div class="text-xl flex items-center">
+                                <span class="text-gray-700 mr-3" id="current-chat-name">Select a conversation</span>
+                            </div>
+                            <span class="text-sm text-gray-600" id="current-chat-waid"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Messages Display Area: Where individual messages of the selected chat are shown -->
+                <div id="messages-display" class="flex flex-col h-full overflow-x-hidden overflow-y-auto p-4 scrollbar-hide">
+                    <!-- Placeholder for dynamic content: Messages will be loaded here by JavaScript -->
+                    <div class="text-center text-gray-500 mt-4" id="no-chat-selected-message">
+                        No conversation selected. Please select one from the left panel.
+                    </div>
+                </div>
+
+                <!-- Message Input Area: Text box and send button -->
+                <div class="flex flex-row items-center h-16 rounded-b-lg w-full px-4 bg-gray-100 border-t border-gray-200">
+                    <div class="flex-grow ml-4">
+                        <div class="relative w-full">
+                            <input type="text" id="message-input" placeholder="Type your message..."
+                                class="flex w-full border rounded-xl focus:outline-none focus:border-indigo-300 pl-4 h-10 text-gray-700"
+                                disabled> <!-- Disabled until a chat is selected -->
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <button id="send-button"
+                            class="flex items-center justify-center bg-indigo-500 hover:bg-indigo-600 rounded-xl text-white px-4 py-2 flex-shrink-0 transition duration-300 ease-in-out transform hover:-translate-y-1"
+                            disabled> <!-- Disabled until a chat is selected -->
+                            <span>Send</span>
+                            <span class="ml-2">
+                                <!-- Send icon (rotated arrow) -->
+                                <svg class="w-4 h-4 transform rotate-45 -mt-px" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                                </svg>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const conversationsList = document.getElementById('conversations-list');
+        const messagesDisplay = document.getElementById('messages-display');
+        const currentChatName = document.getElementById('current-chat-name');
+        const currentChatWAID = document.getElementById('current-chat-waid');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const noChatSelectedMessage = document.getElementById('no-chat-selected-message');
+
+        // Global variables to store messages and selected conversation state
+        let allMessages = [];
+        let conversations = {}; // Stores messages grouped by WA ID
+        let selectedWAID = null; // The currently active WhatsApp ID
+
+        /**
+         * Fetches all messages from the backend API endpoint.
+         * Updates the UI based on the fetched data.
+         * @returns {Promise<void>}
+         */
+        async function fetchMessages() {
+            try {
+                const response = await fetch('/api/messages');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const newMessages = await response.json();
+                
+                // Only update if there's a change in message count or content
+                // A more robust check would involve deep comparison or timestamp comparison
+                if (JSON.stringify(allMessages) !== JSON.stringify(newMessages)) {
+                    allMessages = newMessages;
+                    processMessages(allMessages);
+                }
+            } catch (error) {
+                console.error("Error fetching messages:", error);
+                conversationsList.innerHTML = `<div class="text-center text-red-500 mt-4">Failed to load conversations. Please refresh.</div>`;
+            }
+        }
+
+        /**
+         * Processes raw messages to group them by WhatsApp ID (wa_id) into distinct conversations.
+         * Sorts messages within each conversation by timestamp.
+         * Updates the conversations object and re-renders the conversation list.
+         * @param {Array} messages - The array of raw message objects fetched from the API.
+         */
+        function processMessages(messages) {
+            conversations = {}; // Reset conversations
+            // Sort all messages by timestamp to ensure chronological order for display
+            messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+            messages.forEach(msg => {
+                // Initialize a conversation entry if it doesn't exist for this wa_id
+                if (!conversations[msg.wa_id]) {
+                    conversations[msg.wa_id] = {
+                        name: msg.name,
+                        wa_id: msg.wa_id,
+                        messages: []
+                    };
+                }
+                // Add the message to the corresponding conversation
+                conversations[msg.wa_id].messages.push(msg);
+            });
+            
+            renderConversationsList(); // Update the left panel
+            
+            // If a conversation was previously selected, re-display its messages to show new ones
+            if (selectedWAID && conversations[selectedWAID]) {
+                displayMessages(selectedWAID);
+            } else if (Object.keys(conversations).length > 0) {
+                 // If no conversation is selected, automatically select the most recent one
+                const sortedConversations = Object.values(conversations).sort((a, b) => {
+                    const lastMsgA = a.messages[a.messages.length - 1];
+                    const lastMsgB = b.messages[b.messages.length - 1];
+                    return new Date(lastMsgB.timestamp) - new Date(lastMsgA.timestamp);
+                });
+                if (sortedConversations.length > 0) {
+                    selectConversation(sortedConversations[0].wa_id);
+                }
+            }
+        }
+
+        /**
+         * Renders the list of conversations in the left panel (`conversationsList`).
+         * Highlights the currently selected conversation.
+         */
+        function renderConversationsList() {
+            conversationsList.innerHTML = ''; // Clear existing list items
+            if (Object.keys(conversations).length === 0) {
+                conversationsList.innerHTML = `<div class="text-center text-gray-500 mt-4">No conversations yet.</div>`;
+                return;
+            }
+
+            // Sort conversations by the timestamp of their latest message (most recent first)
+            const sortedConversations = Object.values(conversations).sort((a, b) => {
+                const lastMsgA = a.messages[a.messages.length - 1];
+                const lastMsgB = b.messages[b.messages.length - 1];
+                return new Date(lastMsgB.timestamp) - new Date(lastMsgA.timestamp);
+            });
+
+            sortedConversations.forEach(conv => {
+                const lastMessage = conv.messages[conv.messages.length - 1];
+                const conversationDiv = document.createElement('div');
+                // Apply styling based on selection state
+                conversationDiv.className = `flex flex-row items-center hover:bg-gray-100 rounded-xl p-2 cursor-pointer transition duration-300 ease-in-out ${selectedWAID === conv.wa_id ? 'bg-indigo-100 border border-indigo-300' : ''}`;
+                conversationDiv.setAttribute('data-waid', conv.wa_id); // Store WA ID for selection
+
+                conversationDiv.innerHTML = `
+                    <div class="flex items-center justify-center h-10 w-10 rounded-full bg-indigo-500 text-white font-semibold text-sm flex-shrink-0">
+                        ${conv.name.charAt(0).toUpperCase()} <!-- Display first letter of name as avatar -->
+                    </div>
+                    <div class="ml-3 flex-grow overflow-hidden">
+                        <div class="text-sm font-semibold text-gray-700">${conv.name}</div>
+                        <div class="text-xs text-gray-500 truncate w-40">${lastMessage ? lastMessage.body : 'No messages yet'}</div>
+                    </div>
+                    <div class="ml-auto text-xs text-gray-400 flex-shrink-0">
+                        ${lastMessage ? new Date(lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                    </div>
+                `;
+                // Add click listener to select the conversation
+                conversationDiv.addEventListener('click', () => selectConversation(conv.wa_id));
+                conversationsList.appendChild(conversationDiv);
+            });
+        }
+
+        /**
+         * Selects a conversation by its WhatsApp ID and updates the chat display.
+         * Enables the message input and send button.
+         * @param {string} waid - The WhatsApp ID of the conversation to select.
+         */
+        function selectConversation(waid) {
+            selectedWAID = waid; // Set the global selected WA ID
+            const conversation = conversations[waid];
+
+            if (conversation) {
+                // Update chat header
+                currentChatName.textContent = conversation.name;
+                currentChatWAID.textContent = `WA ID: ${conversation.wa_id}`;
+                
+                // Enable input and send button
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                
+                noChatSelectedMessage.classList.add('hidden'); // Hide the "No chat selected" message
+                
+                displayMessages(waid); // Render messages for the selected chat
+                renderConversationsList(); // Re-render conversation list to show new highlight
+                messageInput.focus(); // Focus on input field for quick typing
+            }
+        }
+
+        /**
+         * Displays individual messages for the currently selected conversation.
+         * Renders message bubbles, direction, and timestamps.
+         * @param {string} waid - The WhatsApp ID of the conversation whose messages are to be displayed.
+         */
+        function displayMessages(waid) {
+            messagesDisplay.innerHTML = ''; // Clear previous messages
+            const conversation = conversations[waid];
+
+            if (!conversation || conversation.messages.length === 0) {
+                messagesDisplay.innerHTML = `<div class="text-center text-gray-500 mt-4">No messages in this conversation.</div>`;
+                return;
+            }
+
+            conversation.messages.forEach(msg => {
+                const messageDiv = document.createElement('div');
+                // Format timestamp
+                const timestamp = new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                // Determine CSS classes for inbound vs. outbound messages
+                const directionClass = msg.direction === 'inbound' ? 'inbound' : 'outbound';
+                const justifyClass = msg.direction === 'inbound' ? 'justify-start' : 'justify-end';
+
+                messageDiv.className = `flex ${justifyClass} mb-2 w-full`; // Ensure message takes full width for flex alignment
+                messageDiv.innerHTML = `
+                    <div class="message-bubble ${directionClass} flex flex-col shadow-sm">
+                        <div class="text-sm">${msg.body}</div>
+                        <div class="text-right text-xs text-gray-400 mt-1">${timestamp}</div>
+                    </div>
+                `;
+                messagesDisplay.appendChild(messageDiv);
+            });
+            scrollToBottom(); // Scroll to the latest message
+        }
+
+        /**
+         * Scrolls the messages display area to the very bottom to show the latest messages.
+         */
+        function scrollToBottom() {
+            messagesDisplay.scrollTop = messagesDisplay.scrollHeight;
+        }
+
+        /**
+         * Sends a reply message from the portal to the currently selected WhatsApp user.
+         * Handles API call, updates UI, and refreshes messages.
+         */
+        async function sendReply() {
+            const messageText = messageInput.value.trim();
+            if (!messageText || !selectedWAID) {
+                alert("Please type a message and select a conversation to reply to.");
+                return;
+            }
+
+            // Disable input and button to prevent multiple sends
+            sendButton.disabled = true;
+            messageInput.disabled = true;
+            sendButton.textContent = 'Sending...';
+
+            try {
+                const response = await fetch('/api/send_reply', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        recipient_waid: selectedWAID,
+                        message_text: messageText
+                    })
+                });
+
+                const result = await response.json();
+                if (!response.ok) {
+                    throw new Error(result.message || 'Failed to send message');
+                }
+                
+                // Message sent successfully, clear input and refresh messages
+                messageInput.value = '';
+                fetchMessages(); // Re-fetch to show the newly sent message
+            } catch (error) {
+                console.error("Error sending message:", error);
+                alert(`Error sending message: ${error.message}`);
+            } finally {
+                // Re-enable input and button
+                sendButton.disabled = false;
+                messageInput.disabled = false;
+                // Restore send button text and icon
+                sendButton.innerHTML = `<span>Send</span> <span class="ml-2"><svg class="w-4 h-4 transform rotate-45 -mt-px" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg></span>`;
+            }
+        }
+
+        // Event Listeners for user interaction
+        sendButton.addEventListener('click', sendReply);
+        // Allow sending message by pressing Enter key in the input field
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendReply();
+            }
+        });
+
+        // Initial load of messages when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchMessages();
+            // Set up a periodic refresh to automatically get new messages (e.g., every 5 seconds)
+            setInterval(fetchMessages, 5000); 
+        });
+
+    </script>
+</body>
+</html>
