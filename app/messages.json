@@ -178,5 +178,14 @@
         "body": "Hello",
         "timestamp": "2025-06-25T01:13:53.060674",
         "direction": "outbound"
+    },
+    {
+        "id": "wamid.HBgNMjM0ODAzMzcyNDcwOBUCABIYFDNBRjE0N0Y4QjlGOTlEOTI3QjRGAA==",
+        "wa_id": "2348033724708",
+        "name": "Taitai",
+        "type": "text",
+        "body": "Thanks\nGood morning",
+        "timestamp": "2025-06-23T05:03:59",
+        "direction": "inbound"
     }
 ]
