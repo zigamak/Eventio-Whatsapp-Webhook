@@ -1,12 +1,22 @@
 [
     {
-        "id": "wamid.HBgNMjM0ODA1NTYxNDQ1NRUCABIYFDNGQUE4MzREODg5QzYyRkJGODMxAA==",
+        "id": "wamid.HBgNMjM0ODA1NTYxNDQ1NRUCABIYFDNGQThGNDUyOTFBQjkyRDVGQ0RCAA==",
         "wa_id": "2348055614455",
         "name": "Ziga",
         "type": "text",
         "body": "Hello",
-        "timestamp": "2025-08-18T01:27:17",
+        "timestamp": "2025-08-18T02:29:19",
         "direction": "inbound",
         "status": "delivered"
+    },
+    {
+        "id": "wamid.HBgNMjM0ODA1NTYxNDQ1NRUCABEYEjgxQkZBOEM0QjIzNTk2NTI0RQA=",
+        "wa_id": "2348055614455",
+        "name": "Bot",
+        "type": "text",
+        "body": "How are you doing?",
+        "timestamp": "2025-08-18T02:29:46.512234",
+        "direction": "outbound",
+        "status": "sent"
     }
 ]

@@ -282,6 +282,7 @@ body {
     transform: scale(1);
 }
 
+/* Ripple effect */
 .ripple {
     position: absolute;
     border-radius: 50%;

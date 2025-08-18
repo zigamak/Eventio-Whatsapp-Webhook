@@ -10,8 +10,291 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f0f0f0, #e8e8e8);
+            overflow: hidden;
+        }
+        
+        /* WhatsApp Colors */
+        .whatsapp-green { background-color: #25D366; }
+        .whatsapp-green-hover { background-color: #22c55e; }
+        .whatsapp-dark { background-color: #075E54; }
+        .whatsapp-light { background-color: #DCF8C6; }
+        .whatsapp-darker { background-color: #054740; }
+        .whatsapp-bg { background-color: #f0f2f5; }
+        .message-bg { background: #e5ddd5; }
+        
+        /* Custom Scrollbars */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { 
+            background: rgba(0,0,0,0.2); 
+            border-radius: 10px; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.3); }
+        
+        /* Message Bubbles */
+        .message-bubble {
+            max-width: 65%;
+            padding: 8px 12px 8px 12px;
+            border-radius: 7.5px;
+            margin-bottom: 2px;
+            word-wrap: break-word;
+            position: relative;
+            animation: slideIn 0.3s ease-out;
+            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+        }
+        
+        .inbound {
+            background-color: #ffffff;
+            color: #111b21;
+            align-self: flex-start;
+            border-top-left-radius: 7.5px;
+            border-top-right-radius: 7.5px;
+            border-bottom-left-radius: 2px;
+            border-bottom-right-radius: 7.5px;
+        }
+        
+        .outbound {
+            background-color: #d9fdd3;
+            color: #111b21;
+            align-self: flex-end;
+            border-top-left-radius: 7.5px;
+            border-top-right-radius: 7.5px;
+            border-bottom-left-radius: 7.5px;
+            border-bottom-right-radius: 2px;
+        }
+        
+        .message-time {
+            font-size: 11px;
+            color: rgba(17, 27, 33, 0.6);
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px;
+        }
+        
+        .tick-status {
+            font-size: 14px;
+            color: #667781;
+        }
+        .tick-status.read { color: #53bdeb; }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        
+        .contact-item {
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .contact-item:hover {
+            background-color: #f5f6f6;
+        }
+        
+        .contact-item.active {
+            background-color: #e7f3ff;
+            border-left-color: #25D366;
+        }
+        
+        .unread-badge {
+            background-color: #25D366;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            min-width: 20px;
+            height: 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: bounce 1s;
+        }
+        
+        .online-indicator {
+            width: 12px;
+            height: 12px;
+            background-color: #25D366;
+            border-radius: 50%;
+            border: 2px solid white;
+            position: absolute;
+            bottom: 0;
+            right: 0;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #667781;
+            font-size: 13px;
+            padding: 8px 16px;
+        }
+        
+        .typing-dots {
+            display: flex;
+            gap: 2px;
+        }
+        
+        .typing-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background-color: #667781;
+            animation: typingDots 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes typingDots {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+        
+        .search-input {
+            background: #f0f2f5;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px 8px 40px;
+        }
+        
+        .search-input:focus {
+            outline: none;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .profile-picture {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667781, #8696a0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            position: relative;
+        }
+        
+        .header-gradient {
+            background: linear-gradient(135deg, #075E54, #25D366);
+        }
+        
+        .glass-effect {
+            backdrop-filter: blur(20px);
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .chat-background {
+            background-image: 
+                radial-gradient(circle at 25% 25%, rgba(37, 211, 102, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(7, 94, 84, 0.03) 0%, transparent 50%);
+            background-color: #efeae2;
+            background-attachment: fixed;
+        }
+        
+        /* Notification styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+            padding: 16px;
+            z-index: 1000;
+            transform: translateX(400px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            max-width: 320px;
+            border-left: 4px solid #25D366;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        
+        .status-indicator {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        
+        .status-online { background-color: #25D366; }
+        .status-away { background-color: #ffb700; }
+        .status-busy { background-color: #ff4444; }
+        
+        .message-input-container {
+            background: #f0f2f5;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .message-input {
+            flex: 1;
+            background: white;
+            border: none;
+            border-radius: 24px;
+            padding: 12px 16px;
+            font-size: 15px;
+            resize: none;
+            max-height: 100px;
+            min-height: 20px;
+        }
+        
+        .message-input:focus {
+            outline: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .send-button {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #25D366;
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 18px;
+        }
+        
+        .send-button:hover {
+            background: #22c55e;
+            transform: scale(1.05);
+        }
+        
+        .send-button:disabled {
+            background: #bbb;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+    </style>
 </head>
 <body class="h-screen flex">
     <!-- Notification container -->
@@ -133,7 +416,590 @@
         </div>
     </div>
 
-    <!-- Custom JavaScript -->
-    <script src="/static/js/script.js"></script>
+    <script>
+        let currentWaId = null;
+        let currentContactName = null;
+        let currentPhoneId = '608867502309431';
+        let lastMessageCounts = {};
+        let isTyping = false;
+        let typingTimeout;
+
+        // DOM Elements
+        const phoneSelector = document.getElementById('phone-selector');
+        const searchInput = document.getElementById('search-input');
+        const contactsList = document.getElementById('contacts-list');
+        const messagesDiv = document.getElementById('messages');
+        const conversationTitle = document.getElementById('conversation-title');
+        const chatStatus = document.getElementById('chat-status');
+        const chatAvatar = document.getElementById('chat-avatar');
+        const statusIndicator = document.getElementById('status-indicator');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const notificationSound = document.getElementById('notification-sound');
+
+        // Notification functions
+        function showNotification(name, message, avatar) {
+            const notification = document.getElementById('notification');
+            document.getElementById('notification-name').textContent = name;
+            document.getElementById('notification-message').textContent = message;
+            document.getElementById('notification-avatar').textContent = avatar;
+            
+            notification.classList.add('show');
+            
+            // Auto hide after 4 seconds
+            setTimeout(() => {
+                hideNotification();
+            }, 4000);
+        }
+
+        function hideNotification() {
+            document.getElementById('notification').classList.remove('show');
+        }
+
+        function playNotificationSound() {
+            try {
+                notificationSound.currentTime = 0;
+                notificationSound.play().catch(e => console.log('Sound play failed:', e));
+            } catch (e) {
+                console.log('Sound not available:', e);
+            }
+        }
+
+        // Auto-resize textarea
+        messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+        });
+
+        // Search functionality
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const contacts = contactsList.querySelectorAll('.contact-item');
+            
+            contacts.forEach(contact => {
+                const name = contact.querySelector('.contact-name')?.textContent.toLowerCase() || '';
+                const lastMessage = contact.querySelector('.last-message')?.textContent.toLowerCase() || '';
+                
+                if (name.includes(searchTerm) || lastMessage.includes(searchTerm)) {
+                    contact.style.display = 'flex';
+                } else {
+                    contact.style.display = 'none';
+                }
+            });
+        });
+
+        function renderTicks(status) {
+            if (status === 'sent') {
+                return '<i class="fas fa-check tick-status"></i>';
+            } else if (status === 'delivered') {
+                return '<i class="fas fa-check-double tick-status"></i>';
+            } else if (status === 'read') {
+                return '<i class="fas fa-check-double tick-status read"></i>';
+            } else if (status === 'sending') {
+                return '<i class="fas fa-clock tick-status"></i>';
+            }
+            return '';
+        }
+
+        function appendMessageToChat(msg) {
+            const isNewMessage = !messagesDiv.querySelector(`[data-message-id="${msg.id || msg.timestamp}"]`);
+            
+            if (messagesDiv.querySelector('.h-full')) {
+                messagesDiv.innerHTML = '';
+            }
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `flex ${msg.direction === 'inbound' ? 'justify-start' : 'justify-end'} mb-1`;
+            msgDiv.setAttribute('data-message-id', msg.id || msg.timestamp);
+            
+            const avatar = msg.direction === 'inbound' ? (currentContactName ? currentContactName.charAt(0).toUpperCase() : '?') : '';
+            
+            msgDiv.innerHTML = `
+                <div class="message-bubble ${msg.direction === 'inbound' ? 'inbound' : 'outbound'}">
+                    <p class="text-sm whitespace-pre-wrap">${msg.body}</p>
+                    <div class="message-time">
+                        <span>${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        ${msg.direction === 'outbound' ? renderTicks(msg.status) : ''}
+                    </div>
+                </div>
+            `;
+            
+            messagesDiv.appendChild(msgDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            // Play notification sound for new inbound messages
+            if (isNewMessage && msg.direction === 'inbound' && currentWaId) {
+                playNotificationSound();
+                if (currentWaId !== msg.wa_id) {
+                    showNotification(
+                        currentContactName || 'Unknown Contact', 
+                        msg.body.length > 50 ? msg.body.substring(0, 50) + '...' : msg.body,
+                        avatar
+                    );
+                }
+            }
+        }
+
+        async function loadMessages(waId, name, phoneId) {
+    if (!phoneId) return;
+    
+    currentWaId = waId;
+    currentContactName = name;
+    currentPhoneId = phoneId;
+    
+    // Update UI
+    conversationTitle.textContent = name || 'Unknown Contact';
+    chatStatus.textContent = 'last seen recently';
+    chatAvatar.querySelector('span').textContent = name ? name.charAt(0).toUpperCase() : '?';
+    statusIndicator.classList.remove('hidden');
+    
+    // Show loading
+    messagesDiv.innerHTML = `
+        <div class="flex items-center justify-center h-full">
+            <div class="text-center text-gray-500">
+                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                <div>Loading messages...</div>
+            </div>
+        </div>
+    `;
+
+    try {
+        const response = await fetch(`/api/chats/${waId}?phone_id=${phoneId}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const data = await response.json();
+        const messages = data.messages || [];
+        
+        messagesDiv.innerHTML = '';
+        if (messages.length === 0) {
+            messagesDiv.innerHTML = `
+                <div class="flex items-center justify-center h-full text-gray-500">
+                    <div class="text-center">
+                        <i class="fab fa-whatsapp text-6xl text-green-100 mb-4"></i>
+                        <p>Start a conversation with ${name}</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            messages.forEach(msg => appendMessageToChat(msg));
+        }
+        
+        // Update the contact preview in the sidebar
+        updateContactPreview(waId, messages[messages.length - 1]?.body || 'No messages yet');
+        
+        messageInput.disabled = false;
+        sendButton.disabled = false;
+        messageInput.focus();
+        
+    } catch (error) {
+        console.error('Error loading messages:', error);
+        messagesDiv.innerHTML = `
+            <div class="flex items-center justify-center h-full text-red-500">
+                <div class="text-center">
+                    <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                    <p>Failed to load messages</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+function updateContactPreview(waId, lastMessage) {
+    const contactItem = contactsList.querySelector(`[data-wa-id="${waId}"]`);
+    if (contactItem) {
+        const lastMessageEl = contactItem.querySelector('.last-message');
+        const unreadBadge = contactItem.querySelector('.unread-badge');
+        
+        if (lastMessageEl) {
+            lastMessageEl.textContent = lastMessage;
+        }
+        
+        if (unreadBadge) {
+            unreadBadge.remove();
+        }
+        
+        // Update timestamp
+        const timeEl = contactItem.querySelector('.last-message-time');
+        if (timeEl) {
+            timeEl.textContent = new Date().toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+        }
+    }
+}
+        function showTyping(show = true) {
+            if (show && currentContactName) {
+                document.getElementById('typing-name').textContent = currentContactName;
+                document.getElementById('typing-avatar').textContent = currentContactName.charAt(0).toUpperCase();
+                typingIndicator.classList.remove('hidden');
+                chatStatus.textContent = 'typing...';
+            } else {
+                typingIndicator.classList.add('hidden');
+                chatStatus.textContent = 'last seen recently';
+            }
+        }
+
+async function sendMessage() {
+    if (!currentWaId || !currentPhoneId) return;
+    
+    const messageBody = messageInput.value.trim();
+    if (!messageBody) return;
+    
+    // Optimistic UI update
+    const tempMessage = {
+        body: messageBody,
+        direction: 'outbound',
+        timestamp: new Date().toISOString(),
+        status: 'sending'
+    };
+    appendMessageToChat(tempMessage);
+
+    messageInput.value = '';
+    messageInput.style.height = 'auto';
+    messageInput.disabled = true;
+    sendButton.disabled = true;
+    sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+    try {
+        const response = await fetch('/api/respond', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                wa_id: currentWaId, 
+                message: messageBody, 
+                phone_id: currentPhoneId 
+            })
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || `Server error: ${response.status}`);
+        }
+        
+        // Update the contact preview
+        updateContactPreview(currentWaId, messageBody);
+        
+        // Simulate typing response
+        setTimeout(() => {
+            showTyping(true);
+            setTimeout(() => {
+                showTyping(false);
+                loadMessages(currentWaId, currentContactName, currentPhoneId);
+            }, 2000);
+        }, 1000);
+        
+    } catch (error) {
+        console.error('Error sending message:', error);
+        // Remove the temporary message on error
+        const tempMsg = messagesDiv.querySelector(`[data-message-id="${tempMessage.timestamp}"]`);
+        if (tempMsg) tempMsg.remove();
+    } finally {
+        messageInput.disabled = false;
+        sendButton.disabled = false;
+        sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
+        messageInput.focus();
+    }
+}
+
+       async function loadContacts() {
+    if (!currentPhoneId) return;
+    
+    try {
+        const response = await fetch(`/api/chats?phone_id=${currentPhoneId}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
+        const data = await response.json();
+        contactsList.innerHTML = '';
+        
+        if (data.chats && data.chats.length > 0) {
+            data.chats.forEach(contact => {
+                // Only show unread badge if this isn't the currently open chat
+                const unreadCount = (currentWaId !== contact.wa_id) 
+                    ? Math.floor(Math.random() * 5) 
+                    : 0;
+                
+                const isOnline = Math.random() > 0.7; // Simulate online status
+                
+                const contactItem = document.createElement('div');
+                contactItem.className = `contact-item p-4 cursor-pointer flex items-center gap-3 ${currentWaId === contact.wa_id ? 'active' : ''}`;
+                contactItem.setAttribute('data-wa-id', contact.wa_id);
+                
+                const avatar = contact.name ? contact.name.charAt(0).toUpperCase() : '?';
+                const timeAgo = contact.last_message_timestamp ? 
+                    new Date(contact.last_message_timestamp).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    }) : '';
+                
+                contactItem.innerHTML = `
+                    <div class="relative">
+                        <div class="profile-picture">
+                            <span>${avatar}</span>
+                            ${isOnline ? '<div class="status-indicator status-online"></div>' : ''}
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1">
+                            <h3 class="contact-name font-medium text-gray-900 truncate">${contact.name || 'Unknown Contact'}</h3>
+                            <div class="flex items-center gap-2">
+                                <span class="last-message-time text-xs text-gray-500">${timeAgo}</span>
+                                ${unreadCount > 0 ? `<div class="unread-badge">${unreadCount}</div>` : ''}
+                            </div>
+                        </div>
+                        <p class="last-message text-sm text-gray-600 truncate">${contact.last_message || 'No messages yet'}</p>
+                    </div>
+                `;
+                
+                contactItem.addEventListener('click', () => {
+                    // Remove active class from all contacts
+                    document.querySelectorAll('.contact-item').forEach(item => 
+                        item.classList.remove('active'));
+                    
+                    // Add active class to clicked contact
+                    contactItem.classList.add('active');
+                    
+                    // Remove unread badge
+                    const badge = contactItem.querySelector('.unread-badge');
+                    if (badge) badge.remove();
+                    
+                    // Update the last message time to now
+                    const timeEl = contactItem.querySelector('.last-message-time');
+                    if (timeEl) {
+                        timeEl.textContent = new Date().toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        });
+                    }
+                    
+                    loadMessages(contact.wa_id, contact.name || 'Unknown Contact', currentPhoneId);
+                });
+                
+                contactsList.appendChild(contactItem);
+                
+                // Store message count for new message detection
+                lastMessageCounts[contact.wa_id] = contact.message_count || 0;
+            });
+        } else {
+            contactsList.innerHTML = `
+                <div class="flex items-center justify-center h-32 text-gray-500">
+                    <div class="text-center">
+                        <i class="fab fa-whatsapp text-4xl text-green-100 mb-2"></i>
+                        <p>No conversations yet</p>
+                    </div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading contacts:', error);
+        contactsList.innerHTML = `
+            <div class="flex items-center justify-center h-32 text-red-500">
+                <div class="text-center">
+                    <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                    <p>Failed to load contacts</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+        // Event Listeners
+        phoneSelector.addEventListener('change', () => {
+            currentPhoneId = phoneSelector.value;
+            currentWaId = null;
+            currentContactName = null;
+            
+            // Reset UI
+            conversationTitle.textContent = 'Select a chat';
+            chatStatus.textContent = 'Choose a conversation to start messaging';
+            chatAvatar.querySelector('span').textContent = '?';
+            statusIndicator.classList.add('hidden');
+            messagesDiv.innerHTML = `
+                <div class="flex items-center justify-center h-full text-gray-500">
+                    <div class="text-center">
+                        <i class="fab fa-whatsapp text-8xl text-green-100 mb-4"></i>
+                        <h3 class="text-xl font-medium mb-2">Keep your phone connected</h3>
+                        <p class="text-sm max-w-sm">WhatsApp connects to your phone to sync messages. To reduce data usage, connect your phone to Wi-Fi.</p>
+                    </div>
+                </div>
+            `;
+            
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            searchInput.value = '';
+            
+            loadContacts();
+        });
+
+        sendButton.addEventListener('click', sendMessage);
+        
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Event Listeners
+phoneSelector.addEventListener('change', () => {
+    currentPhoneId = phoneSelector.value;
+    currentWaId = null;
+    currentContactName = null;
+    
+    // Reset UI
+    conversationTitle.textContent = 'Select a chat';
+    chatStatus.textContent = 'Choose a conversation to start messaging';
+    chatAvatar.querySelector('span').textContent = '?';
+    statusIndicator.classList.add('hidden');
+    messagesDiv.innerHTML = `
+        <div class="flex items-center justify-center h-full text-gray-500">
+            <div class="text-center">
+                <i class="fab fa-whatsapp text-8xl text-green-100 mb-4"></i>
+                <h3 class="text-xl font-medium mb-2">Keep your phone connected</h3>
+                <p class="text-sm max-w-sm">WhatsApp connects to your phone to sync messages. To reduce data usage, connect your phone to Wi-Fi.</p>
+            </div>
+        </div>
+    `;
+    
+    messageInput.disabled = true;
+    sendButton.disabled = true;
+    searchInput.value = '';
+    
+    loadContacts();
+});
+
+sendButton.addEventListener('click', sendMessage);
+
+messageInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    loadContacts();
+
+    // Auto-refresh every 8 seconds
+   setInterval(() => {
+    if (currentPhoneId) {
+        loadContacts();
+        if (currentWaId) {
+            // Check for new messages without full reload
+            fetch(`/api/chats/${currentWaId}?phone_id=${currentPhoneId}`)
+                .then(response => response.json())
+                .then(data => {
+                    const messages = data.messages || [];
+                    const currentMessages = messagesDiv.querySelectorAll('[data-message-id]');
+                    
+                    // Only add new messages
+                    messages.forEach(msg => {
+                        const exists = Array.from(currentMessages).some(el => 
+                            el.getAttribute('data-message-id') === (msg.id || msg.timestamp));
+                        
+                        if (!exists) {
+                            appendMessageToChat(msg);
+                            // Update the contact preview if this is an inbound message
+                            if (msg.direction === 'inbound') {
+                                updateContactPreview(currentWaId, msg.body);
+                            }
+                        }
+                    });
+                })
+                .catch(console.error);
+        }
+    }
+}, 8000);
+    // Simulate random online status changes
+    setInterval(() => {
+        const indicators = document.querySelectorAll('.status-indicator');
+        indicators.forEach(indicator => {
+            if (Math.random() > 0.8) {
+                const classes = ['status-online', 'status-away', 'status-busy'];
+                indicator.className = `status-indicator ${classes[Math.floor(Math.random() * classes.length)]}`;
+            }
+        });
+    }, 15000);
+});
+
+// Handle notification clicks
+document.getElementById('notification').addEventListener('click', () => {
+    hideNotification();
+});
+
+// Close notification on escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        hideNotification();
+    }
+});
+
+// Prevent form submission on Enter in search
+searchInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+    }
+});
+
+// Add some nice hover effects
+document.addEventListener('mouseover', (e) => {
+    if (e.target.classList.contains('send-button') && !e.target.disabled) {
+        e.target.style.transform = 'scale(1.05)';
+    }
+});
+
+document.addEventListener('mouseout', (e) => {
+    if (e.target.classList.contains('send-button')) {
+        e.target.style.transform = 'scale(1)';
+    }
+});
+
+// Add ripple effect to buttons
+function createRipple(event) {
+    const button = event.currentTarget;
+    const circle = document.createElement('span');
+    const diameter = Math.max(button.clientWidth, button.clientHeight);
+    const radius = diameter / 2;
+
+    circle.style.width = circle.style.height = `${diameter}px`;
+    circle.style.left = `${event.clientX - button.offsetLeft - radius}px`;
+    circle.style.top = `${event.clientY - button.offsetTop - radius}px`;
+    circle.classList.add('ripple');
+
+    const ripple = button.getElementsByClassName('ripple')[0];
+    if (ripple) {
+        ripple.remove();
+    }
+
+    button.appendChild(circle);
+}
+
+// Add ripple effect CSS
+const style = document.createElement('style');
+style.textContent = `
+    .ripple {
+        position: absolute;
+        border-radius: 50%;
+        background-color: rgba(255, 255, 255, 0.6);
+        transform: scale(0);
+        animation: ripple-animation 0.6s linear;
+        pointer-events: none;
+    }
+    
+    @keyframes ripple-animation {
+        to {
+            transform: scale(4);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
+
+// Add ripple to send button
+sendButton.addEventListener('click', createRipple);
+
+            </script>
 </body>
 </html>
