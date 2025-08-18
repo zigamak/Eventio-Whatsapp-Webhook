@@ -12,6 +12,29 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <!-- Emoji Picker -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-picker-element@1.12.2/index.css">
+    <script src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1.12.2/index.js" type Rectified
+System: * The user has requested to add functionality to display the contact's name and phone number when clicking on the profile picture in the chat header.
+* The artifact_id "c3a536ee-9013-449a-ba4c-5c7c04c6d8df" is reused as this is an update to the previous artifact.
+* I'll add a modal for displaying profile information and update the chat header to make the profile picture clickable.
+* The modal will show the contact's name and phone number (wa_id).
+* All previous functionality (targeted message polling, emoji/image sending, no voice/video buttons) will be preserved.
+* I'll add new styles for the modal and adjust the JavaScript to handle the profile click event.
+
+<xaiArtifact artifact_id="c3a536ee-9013-449a-ba4c-5c7c04c6d8df" artifact_version_id="e7904ffe-22d5-4599-a3dc-193edc22f08b" title="index.html" contentType="text/html">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Business Portal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <!-- Emoji Picker -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-picker-element@1.12.2/index.css">
     <script src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1.12.2/index.js" type="module"></script>
     <style>
         body {
@@ -191,6 +214,7 @@
             font-weight: 600;
             font-size: 16px;
             position: relative;
+            cursor: pointer;
         }
         
         .header-gradient {
@@ -311,6 +335,42 @@
             border-radius: 8px;
             margin: 8px 0;
         }
+
+        /* Profile Modal */
+        .profile-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .profile-modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+
+        .profile-modal-content .close {
+            position: absolute;
+            right: 16px;
+            top: 16px;
+            cursor: pointer;
+            font-size: 20px;
+            color: #667781;
+        }
+
+        .profile-modal-content .close:hover {
+            color: #111b21;
+        }
     </style>
 </head>
 <body class="h-screen flex">
@@ -327,6 +387,23 @@
             <button onclick="hideNotification()" class="text-gray-400 hover:text-gray-600">
                 <i class="fas fa-times"></i>
             </button>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div id="profile-modal" class="profile-modal">
+        <div class="profile-modal-content relative">
+            <span class="close" onclick="hideProfileModal()">&times;</span>
+            <div class="flex items-center gap-4 mb-4">
+                <div class="profile-picture w-16 h-16 text-2xl">
+                    <span id="profile-modal-avatar">?</span>
+                </div>
+                <div>
+                    <h2 id="profile-modal-name" class="font-semibold text-xl text-gray-900">Contact Name</h2>
+                    <p id="profile-modal-number" class="text-gray-600">+1234567890</p>
+                </div>
+            </div>
+            <div class="text-sm text-gray-500">Last seen recently</div>
         </div>
     </div>
 
@@ -379,7 +456,7 @@
             <div class="bg-gray-50 border-b border-gray-200 p-4">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-3">
-                        <div id="chat-avatar" class="profile-picture">
+                        <div id="chat-avatar" class="profile-picture" onclick="showProfileModal()">
                             <span>?</span>
                             <div id="status-indicator" class="status-indicator status-online hidden"></div>
                         </div>
@@ -446,6 +523,7 @@
         let lastMessageCounts = {};
         let isTyping = false;
         let typingTimeout;
+        let lastMessageTimestamps = {};
 
         // DOM Elements
         const phoneSelector = document.getElementById('phone-selector');
@@ -464,6 +542,25 @@
         const typingIndicator = document.getElementById('typing-indicator');
         const notificationSound = document.getElementById('notification-sound');
         const emojiPicker = document.querySelector('emoji-picker');
+        const profileModal = document.getElementById('profile-modal');
+
+        // Profile Modal functions
+        function showProfileModal() {
+            if (!currentWaId || !currentContactName) return;
+            document.getElementById('profile-modal-name').textContent = currentContactName || 'Unknown Contact';
+            document.getElementById('profile-modal-number').textContent = formatPhoneNumber(currentWaId);
+            document.getElementById('profile-modal-avatar').textContent = currentContactName ? currentContactName.charAt(0).toUpperCase() : '?';
+            profileModal.style.display = 'flex';
+        }
+
+        function hideProfileModal() {
+            profileModal.style.display = 'none';
+        }
+
+        function formatPhoneNumber(waId) {
+            // Assuming waId is a phone number without country code
+            return '+' + waId.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
+        }
 
         // Notification functions
         function showNotification(name, message, avatar) {
@@ -474,10 +571,9 @@
             
             notification.classList.add('show');
             
-            // Auto hide after 10 seconds
             setTimeout(() => {
                 hideNotification();
-            }, 10000);
+            }, 4000);
         }
 
         function hideNotification() {
@@ -615,8 +711,11 @@
                 </div>
             `;
             
+            const wasAtBottom = messagesDiv.scrollTop + messagesDiv.clientHeight >= messagesDiv.scrollHeight;
             messagesDiv.appendChild(msgDiv);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            if (wasAtBottom) {
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
 
             if (isNewMessage && msg.direction === 'inbound' && currentWaId) {
                 playNotificationSound();
@@ -668,6 +767,7 @@
                 } else {
                     messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
                     messages.forEach(msg => appendMessageToChat(msg));
+                    lastMessageTimestamps[waId] = messages[messages.length - 1]?.timestamp || 0;
                 }
                 
                 updateContactPreview(waId, messages[messages.length - 1]?.image ? '[Image]' : messages[messages.length - 1]?.body || 'No messages yet');
@@ -768,6 +868,7 @@
                 }
                 
                 updateContactPreview(currentWaId, messageBody);
+                lastMessageTimestamps[currentWaId] = tempMessage.timestamp;
                 
                 setTimeout(() => {
                     showTyping(true);
@@ -825,6 +926,8 @@
                             hour: '2-digit', 
                             minute: '2-digit' 
                         }) : '';
+                        
+                        lastMessageTimestamps[contact.wa_id] = lastMessage ? lastMessage.timestamp : 0;
                         
                         const isOnline = Math.random() > 0.7;
                         
@@ -901,6 +1004,34 @@
             }
         }
 
+        async function checkNewMessages() {
+            if (!currentWaId || !currentPhoneId) return;
+            
+            try {
+                const response = await fetch(`/api/chats/${currentWaId}?phone_id=${currentPhoneId}&since=${encodeURIComponent(lastMessageTimestamps[currentWaId] || '')}`);
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                const messages = data.messages || [];
+                
+                if (messages.length > 0) {
+                    const wasAtBottom = messagesDiv.scrollTop + messagesDiv.clientHeight >= messagesDiv.scrollHeight;
+                    messages.forEach(msg => {
+                        appendMessageToChat(msg);
+                        lastMessageTimestamps[currentWaId] = msg.timestamp;
+                        if (msg.direction === 'inbound') {
+                            updateContactPreview(currentWaId, msg.image ? '[Image]' : msg.body);
+                        }
+                    });
+                    if (wasAtBottom) {
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking new messages:', error);
+            }
+        }
+
         // Event Listeners
         phoneSelector.addEventListener('change', () => {
             currentPhoneId = phoneSelector.value;
@@ -943,30 +1074,8 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadContacts();
 
-            // Auto-refresh every 10 seconds
-            setInterval(async () => {
-                if (currentPhoneId) {
-                    await loadContacts();
-                    if (currentWaId) {
-                        const response = await fetch(`/api/chats/${currentWaId}?phone_id=${currentPhoneId}`);
-                        const data = await response.json();
-                        const messages = data.messages || [];
-                        const currentMessages = messagesDiv.querySelectorAll('[data-message-id]');
-                        
-                        messages.forEach(msg => {
-                            const exists = Array.from(currentMessages).some(el => 
-                                el.getAttribute('data-message-id') === (msg.id || msg.timestamp));
-                            
-                            if (!exists) {
-                                appendMessageToChat(msg);
-                                if (msg.direction === 'inbound') {
-                                    updateContactPreview(currentWaId, msg.image ? '[Image]' : msg.body);
-                                }
-                            }
-                        });
-                    }
-                }
-            }, 10000);
+            // Poll for new messages every 5 seconds
+            setInterval(checkNewMessages, 5000);
 
             // Simulate random online status changes
             setInterval(() => {
@@ -985,10 +1094,11 @@
             hideNotification();
         });
 
-        // Close notification on escape key
+        // Close notification and modal on escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 hideNotification();
+                hideProfileModal();
                 emojiPicker.parentElement.style.display = 'none';
             }
         });
