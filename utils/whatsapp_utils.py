@@ -73,7 +73,7 @@ def send_message(data, phone_id):
     Returns:
         tuple: (Response object, HTTP status code)
     """
-    from config import WHATSAPP_ACCESS_TOKEN, VERSION  # Import here to avoid circular imports
+    from config import WHATSAPP_ACCESS_TOKEN, VERSION
     url = f"https://graph.facebook.com/{VERSION}/{phone_id}/messages"
     headers = {
         "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
@@ -97,7 +97,6 @@ def is_valid_whatsapp_message(body):
         bool: True if valid, False otherwise.
     """
     try:
-        # Check for both incoming messages and status updates
         value = body["entry"][0]["changes"][0]["value"]
         is_message = "messages" in value and len(value["messages"]) > 0
         is_status = "statuses" in value and len(value["statuses"]) > 0
@@ -116,7 +115,7 @@ def is_valid_whatsapp_message(body):
 
 def process_whatsapp_message(body, file_path):
     """
-    Process an incoming WhatsApp message and save it to the JSON file.
+    Process an incoming WhatsApp message or status update and save it to the JSON file.
     
     Args:
         body (dict): Webhook payload.
@@ -126,7 +125,6 @@ def process_whatsapp_message(body, file_path):
         entry = body["entry"][0]
         change = entry["changes"][0]["value"]
         
-        # Check if the webhook is for a new incoming message
         if "messages" in change:
             messages = change.get("messages", [])
             contacts = change.get("contacts", [])
@@ -148,17 +146,28 @@ def process_whatsapp_message(body, file_path):
                 "body": message_body,
                 "timestamp": datetime.fromtimestamp(int(timestamp)).isoformat(),
                 "direction": "inbound",
-                "status": "delivered"
+                "status": "delivered",
+                "read": False
             }
             
             save_message(message_data, file_path)
             logger.info(f"Processed incoming message from {wa_id}: {message_body}")
         
-        # Check if the webhook is for a message status update
         elif "statuses" in change:
             status = change["statuses"][0]
-            logger.info(f"Received message status update. ID: {status.get('id')}, Status: {status.get('status')}")
-            # You could add code here to update the message status in your JSON file.
-
+            messages = load_messages(file_path)
+            message_id = status.get('id')
+            new_status = status.get('status')
+            
+            for msg in messages:
+                if msg['id'] == message_id:
+                    msg['status'] = new_status
+                    if new_status == 'read':
+                        msg['read'] = True
+            
+            with open(file_path, 'w') as f:
+                json.dump(messages, f, indent=4)
+            logger.info(f"Updated message status. ID: {message_id}, Status: {new_status}")
+        
     except Exception as e:
         logger.error(f"Error processing WhatsApp message: {e}")
