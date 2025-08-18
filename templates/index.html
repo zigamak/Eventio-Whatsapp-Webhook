@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Business Portal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="h-screen flex">
+    <!-- Notification container -->
+    <div id="notification" class="notification">
+        <div class="flex items-start gap-3">
+            <div class="profile-picture w-10 h-10 text-sm">
+                <span id="notification-avatar">?</span>
+            </div>
+            <div class="flex-1">
+                <div class="font-medium text-gray-900" id="notification-name">Contact</div>
+                <div class="text-sm text-gray-600 mt-1" id="notification-message">New message</div>
+            </div>
+            <button onclick="hideNotification()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Audio for notifications -->
+    <audio id="notification-sound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRvQDAABXQVZFZm10IBAAAAABAAABACE7AABBXwAAAgAQAGRhdGHQAwAAhoCAgICAgIiIiIiIiIiIjIyMjIyMjIyQkJCQkJCQkJSUlJSUlJSUmJiYmJiYmJiYnJycnJycnJygoKCgoKCgoKSkpKSkpKSkqKioqKioqKiEhISEhISEhISIiIiIiIiIiIyMjIyMjIyMkJCQkJCQkJCUlJSUlJSUlJiYmJiYmJiYnJycnJycnJygoKCgoKCgoKSkpKSkpKSkqKioqKioqKiEhISEhISEhISIiIiIiIiIiIyMjIyMjIyMkJCQkJCQkJCUlJSUlJSUlJiYmJiYmJiYnJycnJycnJygoKCgoKCgoKSkpKSkpKSkqKioqKioqKiEhISEhISEhISIiIiIiIiIiIyMjIyMjIyMkJCQkJCQkJCUlJSUlJSUlJiYmJiYmJiYnJycnJycnJygoKCgoKCgoKSkpKSkpKSkqKioqKioqKg=" type="audio/wav">
+    </audio>
+
+    <div class="flex w-full h-full">
+        <!-- Left Sidebar -->
+        <div class="w-80 bg-white border-r border-gray-200 flex flex-col">
+            <!-- Header -->
+            <div class="header-gradient p-4 text-white">
+                <div class="flex items-center justify-between mb-4">
+                    <h1 class="text-xl font-semibold">Chats</h1>
+                    <div class="flex gap-3">
+                        <i class="fas fa-circle-notch cursor-pointer hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-all"></i>
+                        <i class="fas fa-comment-plus cursor-pointer hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-all"></i>
+                        <i class="fas fa-ellipsis-vertical cursor-pointer hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-all"></i>
+                    </div>
+                </div>
+                
+                <!-- Phone Selector -->
+                <select id="phone-selector" class="w-full p-3 rounded-lg bg-white bg-opacity-20 text-white border border-white border-opacity-30 focus:outline-none focus:bg-opacity-30">
+                    <option value="608867502309431" class="text-gray-800">📱 Eventio Business</option>
+                    <option value="630482473482641" class="text-gray-800">📦 Package with Sense</option>
+                </select>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="p-4 bg-gray-50 relative">
+                <i class="fas fa-search absolute left-7 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <input id="search-input" type="text" placeholder="Search or start new chat" class="search-input w-full">
+            </div>
+
+            <!-- Contacts List -->
+            <div id="contacts-list" class="flex-1 overflow-y-auto custom-scrollbar">
+                <div class="flex items-center justify-center h-32 text-gray-500">
+                    <div class="text-center">
+                        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                        <div>Loading conversations...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="flex-1 flex flex-col">
+            <!-- Chat Header -->
+            <div class="bg-gray-50 border-b border-gray-200 p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div id="chat-avatar" class="profile-picture">
+                            <span>?</span>
+                            <div id="status-indicator" class="status-indicator status-online hidden"></div>
+                        </div>
+                        <div>
+                            <h2 id="conversation-title" class="font-semibold text-gray-900">Select a chat</h2>
+                            <div id="chat-status" class="text-sm text-gray-500">Choose a conversation to start messaging</div>
+                        </div>
+                    </div>
+                    <div class="flex gap-4 text-gray-600">
+                        <i class="fas fa-search cursor-pointer hover:text-gray-900 p-2"></i>
+                        <i class="fas fa-phone cursor-pointer hover:text-gray-900 p-2"></i>
+                        <i class="fas fa-video cursor-pointer hover:text-gray-900 p-2"></i>
+                        <i class="fas fa-ellipsis-vertical cursor-pointer hover:text-gray-900 p-2"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages Area -->
+            <div id="messages" class="flex-1 chat-background overflow-y-auto custom-scrollbar p-4">
+                <div class="flex items-center justify-center h-full text-gray-500">
+                    <div class="text-center">
+                        <i class="fab fa-whatsapp text-8xl text-green-100 mb-4"></i>
+                        <h3 class="text-xl font-medium mb-2">Keep your phone connected</h3>
+                        <p class="text-sm max-w-sm">WhatsApp connects to your phone to sync messages. To reduce data usage, connect your phone to Wi-Fi.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Typing Indicator -->
+            <div id="typing-indicator" class="typing-indicator hidden">
+                <div class="profile-picture w-6 h-6 text-xs">
+                    <span id="typing-avatar">?</span>
+                </div>
+                <span id="typing-name">Contact</span> is typing
+                <div class="typing-dots">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            </div>
+
+            <!-- Message Input -->
+            <div class="message-input-container">
+                <i class="fas fa-smile text-gray-500 cursor-pointer hover:text-gray-700 text-xl"></i>
+                <i class="fas fa-paperclip text-gray-500 cursor-pointer hover:text-gray-700 text-xl"></i>
+                <textarea id="message-input" placeholder="Type a message" class="message-input" rows="1" disabled></textarea>
+                <button id="send-button" class="send-button" disabled>
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JavaScript -->
+    <script src="/static/js/script.js"></script>
+</body>
+</html>

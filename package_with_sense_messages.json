@@ -1,0 +1,62 @@
+[
+    {
+        "id": "wamid.HBgNMjM0ODA1NTYxNDQ1NRUCABIYFDNGQ0U2QzMxQjNGRTY2NDU3NTgzAA==",
+        "wa_id": "2348055614455",
+        "name": "Ziga",
+        "type": "text",
+        "body": "Hello",
+        "timestamp": "2025-08-18T01:30:19",
+        "direction": "inbound",
+        "status": "delivered"
+    },
+    {
+        "id": "wamid.HBgNMjM0ODA1NTYxNDQ1NRUCABIYFDNGMTFGN0JGMzExQkIxRTFBMjI2AA==",
+        "wa_id": "2348055614455",
+        "name": "Ziga",
+        "type": "text",
+        "body": "I am very fine thank you",
+        "timestamp": "2025-08-18T01:31:50",
+        "direction": "inbound",
+        "status": "delivered"
+    },
+    {
+        "id": "wamid.HBgNMjM0ODA1NTYxNDQ1NRUCABEYEkI5OUVCODFFOTRDQTM3MEY5QwA=",
+        "wa_id": "2348055614455",
+        "name": "Bot",
+        "type": "text",
+        "body": "SO how are you doing?",
+        "timestamp": "2025-08-18T01:35:03.568241",
+        "direction": "outbound",
+        "status": "sent"
+    },
+    {
+        "id": "wamid.HBgNMjM0ODA1NTYxNDQ1NRUCABIYFDNGQjYxQUNBNzgxMUEyM0NEQTg3AA==",
+        "wa_id": "2348055614455",
+        "name": "Ziga",
+        "type": "text",
+        "body": "Very fine",
+        "timestamp": "2025-08-18T01:35:12",
+        "direction": "inbound",
+        "status": "delivered"
+    },
+    {
+        "id": "wamid.HBgNMjM0ODA1NTYxNDQ1NRUCABEYEjJFQTJFNTk1NDJERUQ0Rjg3QwA=",
+        "wa_id": "2348055614455",
+        "name": "Bot",
+        "type": "text",
+        "body": "So how can i get eventio?",
+        "timestamp": "2025-08-18T01:38:50.809882",
+        "direction": "outbound",
+        "status": "sent"
+    },
+    {
+        "id": "wamid.HBgNMjM0ODA1NTYxNDQ1NRUCABIYFDNGNTU0N0MyRDQxRjc1QzVERDY3AA==",
+        "wa_id": "2348055614455",
+        "name": "Ziga",
+        "type": "text",
+        "body": "You can get eventio by getting ready",
+        "timestamp": "2025-08-18T01:39:14",
+        "direction": "inbound",
+        "status": "delivered"
+    }
+]

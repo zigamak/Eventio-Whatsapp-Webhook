@@ -1,0 +1,299 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background: linear-gradient(135deg, #f0f0f0, #e8e8e8);
+    overflow: hidden;
+}
+
+/* WhatsApp Colors */
+.whatsapp-green { background-color: #25D366; }
+.whatsapp-green-hover { background-color: #22c55e; }
+.whatsapp-dark { background-color: #075E54; }
+.whatsapp-light { background-color: #DCF8C6; }
+.whatsapp-darker { background-color: #054740; }
+.whatsapp-bg { background-color: #f0f2f5; }
+.message-bg { background: #e5ddd5; }
+
+/* Custom Scrollbars */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { 
+    background: rgba(0,0,0,0.2); 
+    border-radius: 10px; 
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.3); }
+
+/* Message Bubbles */
+.message-bubble {
+    max-width: 65%;
+    padding: 8px 12px 8px 12px;
+    border-radius: 7.5px;
+    margin-bottom: 2px;
+    word-wrap: break-word;
+    position: relative;
+    animation: slideIn 0.3s ease-out;
+    box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+}
+
+.inbound {
+    background-color: #ffffff;
+    color: #111b21;
+    align-self: flex-start;
+    border-top-left-radius: 7.5px;
+    border-top-right-radius: 7.5px;
+    border-bottom-left-radius: 2px;
+    border-bottom-right-radius: 7.5px;
+}
+
+.outbound {
+    background-color: #d9fdd3;
+    color: #111b21;
+    align-self: flex-end;
+    border-top-left-radius: 7.5px;
+    border-top-right-radius: 7.5px;
+    border-bottom-left-radius: 7.5px;
+    border-bottom-right-radius: 2px;
+}
+
+.message-time {
+    font-size: 11px;
+    color: rgba(17, 27, 33, 0.6);
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+}
+
+.tick-status {
+    font-size: 14px;
+    color: #667781;
+}
+.tick-status.read { color: #53bdeb; }
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+    40% { transform: translateY(-10px); }
+    60% { transform: translateY(-5px); }
+}
+
+.contact-item {
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+}
+
+.contact-item:hover {
+    background-color: #f5f6f6;
+}
+
+.contact-item.active {
+    background-color: #e7f3ff;
+    border-left-color: #25D366;
+}
+
+.unread-badge {
+    background-color: #25D366;
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: bounce 1s;
+}
+
+.online-indicator {
+    width: 12px;
+    height: 12px;
+    background-color: #25D366;
+    border-radius: 50%;
+    border: 2px solid white;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+}
+
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #667781;
+    font-size: 13px;
+    padding: 8px 16px;
+}
+
+.typing-dots {
+    display: flex;
+    gap: 2px;
+}
+
+.typing-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: #667781;
+    animation: typingDots 1.4s infinite ease-in-out;
+}
+
+.typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes typingDots {
+    0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
+    40% { transform: scale(1); opacity: 1; }
+}
+
+.search-input {
+    background: #f0f2f5;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px 8px 40px;
+}
+
+.search-input:focus {
+    outline: none;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.profile-picture {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667781, #8696a0);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 600;
+    font-size: 16px;
+    position: relative;
+}
+
+.header-gradient {
+    background: linear-gradient(135deg, #075E54, #25D366);
+}
+
+.glass-effect {
+    backdrop-filter: blur(20px);
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.chat-background {
+    background-image: 
+        radial-gradient(circle at 25% 25%, rgba(37, 211, 102, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(7, 94, 84, 0.03) 0%, transparent 50%);
+    background-color: #efeae2;
+    background-attachment: fixed;
+}
+
+/* Notification styles */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    padding: 16px;
+    z-index: 1000;
+    transform: translateX(400px);
+    opacity: 0;
+    transition: all 0.3s ease;
+    max-width: 320px;
+    border-left: 4px solid #25D366;
+}
+
+.notification.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.status-indicator {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 2px solid white;
+}
+
+.status-online { background-color: #25D366; }
+.status-away { background-color: #ffb700; }
+.status-busy { background-color: #ff4444; }
+
+.message-input-container {
+    background: #f0f2f5;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.message-input {
+    flex: 1;
+    background: white;
+    border: none;
+    border-radius: 24px;
+    padding: 12px 16px;
+    font-size: 15px;
+    resize: none;
+    max-height: 100px;
+    min-height: 20px;
+}
+
+.message-input:focus {
+    outline: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.send-button {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #25D366;
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 18px;
+}
+
+.send-button:hover {
+    background: #22c55e;
+    transform: scale(1.05);
+}
+
+.send-button:disabled {
+    background: #bbb;
+    cursor: not-allowed;
+    transform: scale(1);
+}
+
+.ripple {
+    position: absolute;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.6);
+    transform: scale(0);
+    animation: ripple-animation 0.6s linear;
+    pointer-events: none;
+}
+
+@keyframes ripple-animation {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}

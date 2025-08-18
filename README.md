@@ -1,219 +1,208 @@
-WhatsApp Message Portal
-This Flask-based application provides a simple web interface to view incoming WhatsApp messages and send replies using the WhatsApp Business Cloud API. It acts as a basic customer support portal, allowing you to manage conversations from a centralized dashboard.
+# Build AI WhatsApp Bots with Pure Python
+
+This guide will walk you through the process of creating a WhatsApp bot using the Meta (formerly Facebook) Cloud API with pure Python, and Flask particular. We'll also integrate webhook events to receive messages in real-time and use OpenAI to generate AI responses. For more information on the structure of the Flask application, you can refer to [this documentation](https://github.com/daveebbelaar/python-whatsapp-bot/tree/main/app).
+
+## Prerequisites
+
+1. A Meta developer account — If you don’t have one, you can [create a Meta developer account here](https://developers.facebook.com/).
+2. A business app — If you don't have one, you can [learn to create a business app here](https://developers.facebook.com/docs/development/create-an-app/). If you don't see an option to create a business app, select **Other** > **Next** > **Business**.
+3. Familiarity with Python to follow the tutorial.
 
-✨ Features
-View Incoming Messages: See all messages received by your WhatsApp Business number.
 
-Conversation Grouping: Messages are grouped by sender for easy conversation tracking.
+## Table of Contents
 
-Send Replies: Respond to users directly from the web interface.
+- [Build AI WhatsApp Bots with Pure Python](#build-ai-whatsapp-bots-with-pure-python)
+  - [Prerequisites](#prerequisites)
+  - [Table of Contents](#table-of-contents)
+  - [Get Started](#get-started)
+  - [Step 1: Select Phone Numbers](#step-1-select-phone-numbers)
+  - [Step 2: Send Messages with the API](#step-2-send-messages-with-the-api)
+  - [Step 3: Configure Webhooks to Receive Messages](#step-3-configure-webhooks-to-receive-messages)
+      - [Start your app](#start-your-app)
+      - [Launch ngrok](#launch-ngrok)
+      - [Integrate WhatsApp](#integrate-whatsapp)
+      - [Testing the Integration](#testing-the-integration)
+  - [Step 4: Understanding Webhook Security](#step-4-understanding-webhook-security)
+      - [Verification Requests](#verification-requests)
+      - [Validating Verification Requests](#validating-verification-requests)
+      - [Validating Payloads](#validating-payloads)
+  - [Step 5: Learn about the API and Build Your App](#step-5-learn-about-the-api-and-build-your-app)
+  - [Step 6: Integrate AI into the Application](#step-6-integrate-ai-into-the-application)
+  - [Step 7: Add a Phone Number](#step-7-add-a-phone-number)
+  - [Datalumina](#datalumina)
+  - [Tutorials](#tutorials)
 
-Local JSON Storage: Messages are stored in a local messages.json file (suitable for prototyping).
+## Get Started
 
-Responsive UI: Basic web interface designed with Tailwind CSS for readability on different screen sizes.
+1. **Overview & Setup**: Begin your journey [here](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started).
+2. **Locate Your Bots**: Your bots can be found [here](https://developers.facebook.com/apps/).
+3. **WhatsApp API Documentation**: Familiarize yourself with the [official documentation](https://developers.facebook.com/docs/whatsapp).
+4. **Helpful Guide**: Here's a [Python-based guide](https://developers.facebook.com/blog/post/2022/10/24/sending-messages-with-whatsapp-in-your-python-applications/) for sending messages.
+5. **API Docs for Sending Messages**: Check out [this documentation](https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-messages).
 
-🚀 Prerequisites
-Before you begin, ensure you have the following:
+## Step 1: Select Phone Numbers
 
-Python 3.x: Installed on your machine.
+- Make sure WhatsApp is added to your App.
+- You begin with a test number that you can use to send messages to up to 5 numbers.
+- Go to API Setup and locate the test number from which you will be sending messages.
+- Here, you can also add numbers to send messages to. Enter your **own WhatsApp number**.
+- You will receive a code on your phone via WhatsApp to verify your number.
 
-pip: Python package installer (usually comes with Python).
+## Step 2: Send Messages with the API
 
-A Meta (Facebook) Developer Account: Required to access the Meta Developers Dashboard.
+1. Obtain a 24-hour access token from the API access section.
+2. It will show an example of how to send messages using a `curl` command which can be send from the terminal or with a tool like Postman.
+3. Let's convert that into a [Python function with the request library](https://github.com/daveebbelaar/python-whatsapp-bot/blob/main/start/whatsapp_quickstart.py).
+4. Create a `.env` files based on `example.env` and update the required variables. [Video example here](https://www.youtube.com/watch?v=sOwG0bw0RNU).
+5. You will receive a "Hello World" message (Expect a 60-120 second delay for the message).
 
-A WhatsApp Business Account (WABA): Set up and linked to your Meta Developer App.
+Creating an access that works longer then 24 hours
+1. Create a [system user at the Meta Business account level](https://business.facebook.com/settings/system-users).
+2. On the System Users page, configure the assets for your System User, assigning your WhatsApp app with full control. Don't forget to click the Save Changes button.
+   - [See step 1 here](https://github.com/daveebbelaar/python-whatsapp-bot/blob/main/img/meta-business-system-user-token.png)
+   - [See step 2 here](https://github.com/daveebbelaar/python-whatsapp-bot/blob/main/img/adding-assets-to-system-user.png)
+3. Now click `Generate new token` and select the app, and then choose how long the access token will be valid. You can choose 60 days or never expire.
+4. Select all the permissions, as I was running into errors when I only selected the WhatsApp ones.
+5. Confirm and copy the access token.
 
-A WhatsApp Business API Phone Number: Configured within your WABA.
+Now we have to find the following information on the **App Dashboard**:
 
-ACCESS_TOKEN: A valid and non-expired access token from your Meta Developers App Dashboard (under WhatsApp > API Setup).
+- **APP_ID**: "<YOUR-WHATSAPP-BUSINESS-APP_ID>" (Found at App Dashboard)
+- **APP_SECRET**: "<YOUR-WHATSAPP-BUSINESS-APP_SECRET>" (Found at App Dashboard)
+- **RECIPIENT_WAID**: "<YOUR-RECIPIENT-TEST-PHONE-NUMBER>" (This is your WhatsApp ID, i.e., phone number. Make sure it is added to the account as shown in the example test message.)
+- **VERSION**: "v18.0" (The latest version of the Meta Graph API)
+- **WHATAPP_ACCESS_TOKEN**: "<YOUR-SYSTEM-USER-ACCESS-TOKEN>" (Created in the previous step)
 
-PHONE_NUMBER_ID: The ID of your WhatsApp Business API phone number.
+> You can only send a template type message as your first message to a user. That's why you have to send a reply first before we continue. Took me 2 hours to figure this out.
 
-VERIFY_TOKEN: A custom string you will define and use for webhook verification.
 
-ngrok (for local testing): A tool to expose your local Flask server to the internet, allowing Meta to send webhook notifications to your local machine. Download from ngrok.com.
+## Step 3: Configure Webhooks to Receive Messages
 
-📁 Project Structure
-whatsapp-portal/
-├── APP/
-│   ├── __init__.py           # Flask app creation and blueprint registration
-│   ├── config.py             # Configuration settings for WhatsApp API
-│   ├── messages.json         # Stores all incoming/outgoing messages (created automatically)
-│   ├── UTILS/
-│   │   └── whatsapp_utils.py # Utility functions for WhatsApp API interaction and message handling
-│   ├── STATIC/
-│   │   └── index.html        # The main web interface for the portal
-│   └── views.py              # Flask blueprints for webhook and portal routes
-└── run.py                    # Main script to run the Flask application
+> Please note, this is the hardest part of this tutorial.
 
-⚙️ Setup and Installation
-Follow these steps to get the WhatsApp Portal running on your local machine:
+#### Start your app
+- Make you have a python installation or environment and install the requirements: `pip install -r requirements.txt`
+- Run your Flask app locally by executing [run.py](https://github.com/daveebbelaar/python-whatsapp-bot/blob/main/run.py)
 
-Clone the repository (or set up the files manually):
+#### Launch ngrok
 
-git clone https://github.com/your-username/whatsapp-portal.git # Replace with your repo URL
-cd whatsapp-portal
+The steps below are taken from the [ngrok documentation](https://ngrok.com/docs/integrations/whatsapp/webhooks/).
 
-If you've been working with the files directly, ensure your local directory structure matches the one above.
+> You need a static ngrok domain because Meta validates your ngrok domain and certificate!
 
-Create a Python Virtual Environment (Recommended):
+Once your app is running successfully on localhost, let's get it on the internet securely using ngrok!
 
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+1. If you're not an ngrok user yet, just sign up for ngrok for free.
+2. Download the ngrok agent.
+3. Go to the ngrok dashboard, click Your [Authtoken](https://dashboard.ngrok.com/get-started/your-authtoken), and copy your Authtoken.
+4. Follow the instructions to authenticate your ngrok agent. You only have to do this once.
+5. On the left menu, expand Cloud Edge and then click Domains.
+6. On the Domains page, click + Create Domain or + New Domain. (here everyone can start with [one free domain](https://ngrok.com/blog-post/free-static-domains-ngrok-users))
+7. Start ngrok by running the following command in a terminal on your local desktop:
+```
+ngrok http 8000 --domain your-domain.ngrok-free.app
+```
+8. ngrok will display a URL where your localhost application is exposed to the internet (copy this URL for use with Meta).
 
-Install Dependencies:
 
-pip install -r requirements.txt
+#### Integrate WhatsApp
 
-If you don't have requirements.txt, create one in the whatsapp-portal/ root directory with the following content and then run the command above:
+In the Meta App Dashboard, go to WhatsApp > Configuration, then click the Edit button.
+1. In the Edit webhook's callback URL popup, enter the URL provided by the ngrok agent to expose your application to the internet in the Callback URL field, with /webhook at the end (i.e. https://myexample.ngrok-free.app/webhook).
+2. Enter a verification token. This string is set up by you when you create your webhook endpoint. You can pick any string you like. Make sure to update this in your `VERIFY_TOKEN` environment variable.
+3. After you add a webhook to WhatsApp, WhatsApp will submit a validation post request to your application through ngrok. Confirm your localhost app receives the validation get request and logs `WEBHOOK_VERIFIED` in the terminal.
+4. Back to the Configuration page, click Manage.
+5. On the Webhook fields popup, click Subscribe to the **messages** field. Tip: You can subscribe to multiple fields.
+6. If your Flask app and ngrok are running, you can click on "Test" next to messages to test the subscription. You recieve a test message in upper case. If that is the case, your webhook is set up correctly.
 
-Flask
-requests
-gunicorn  # Only needed for production deployment, but good to include
 
-Configure APP/config.py:
-Open the APP/config.py file and update the following variables with your actual credentials from the Meta Developers Dashboard:
+#### Testing the Integration
+Use the phone number associated to your WhatsApp product or use the test number you copied before.
+1. Add this number to your WhatsApp app contacts and then send a message to this number.
+2. Confirm your localhost app receives a message and logs both headers and body in the terminal.
+3. Test if the bot replies back to you in upper case.
+4. You have now succesfully integrated the bot! 🎉
+5. Now it's time to acutally build cool things with this.
 
-# APP/config.py
-ACCESS_TOKEN = "YOUR_WHATSAPP_ACCESS_TOKEN"         # From Meta Developers > WhatsApp > API Setup
-VERIFY_TOKEN = "YOUR_CHOSEN_WEBHOOK_VERIFY_TOKEN"   # A string you make up (e.g., "mysecrettoken123")
-PHONE_NUMBER_ID = "YOUR_PHONE_NUMBER_ID"           # From Meta Developers > WhatsApp > API Setup
 
-# Optional, but recommended to fill out if you intend to use them later or for completeness
-RECIPIENT_WAID = "OPTIONAL_DEFAULT_RECIPIENT_WA_ID" # For testing, e.g., your own WhatsApp number (with country code, no '+')
-VERSION = "v19.0"                                   # Current WhatsApp API version (check Meta docs)
-APP_ID = "YOUR_FACEBOOK_APP_ID"                     # From Meta Developers > App Settings > Basic
-APP_SECRET = "YOUR_FACEBOOK_APP_SECRET"             # From Meta Developers > App Settings > Basic
-WEBHOOK_URL = "YOUR_PUBLIC_WEBHOOK_URL"             # Will be filled after ngrok/deployment
+## Step 4: Understanding Webhook Security
 
-SECRET_KEY = "YOUR_VERY_STRONG_FLASK_SECRET_KEY"    # Crucial for Flask security
-DEBUG = True                                        # Set to False for production
+Below is some information from the Meta Webhooks API docs about verification and security. It is already implemented in the code, but you can reference it to get a better understanding of what's going on in [security.py](https://github.com/daveebbelaar/python-whatsapp-bot/blob/main/app/decorators/security.py)
 
-Make sure all YOUR_... placeholders are replaced with actual values.
+#### Verification Requests
 
-🏃 Running the Application Locally
-Start ngrok (for webhook receiving):
-Open a new terminal window (leave your Flask app terminal open) and run:
+[Source](https://developers.facebook.com/docs/graph-api/webhooks/getting-started#:~:text=process%20these%20requests.-,Verification%20Requests,-Anytime%20you%20configure)
 
-ngrok http 8000
-```ngrok` will give you a public HTTPS URL (e.g., `[https://abcdef12345.ngrok-free.app](https://abcdef12345.ngrok-free.app)`). **Copy this URL**, as you'll need it for the webhook setup. This URL will forward requests to your local Flask app running on port 8000.
+Anytime you configure the Webhooks product in your App Dashboard, we'll send a GET request to your endpoint URL. Verification requests include the following query string parameters, appended to the end of your endpoint URL. They will look something like this:
 
+```
+GET https://www.your-clever-domain-name.com/webhook?
+  hub.mode=subscribe&
+  hub.challenge=1158201444&
+  hub.verify_token=meatyhamhock
+```
 
-Start the Flask App:
-In your original terminal where your virtual environment is active, run:
+The verify_token, `meatyhamhock` in the case of this example, is a string that you can pick. It doesn't matter what it is as long as you store in the `VERIFY_TOKEN` environment variable.
 
-python run.py
+#### Validating Verification Requests
 
-You should see Flask's development server starting up, typically on http://127.0.0.1:8000/.
+[Source](https://developers.facebook.com/docs/graph-api/webhooks/getting-started#:~:text=Validating%20Verification%20Requests)
 
-Access the Web Portal:
-Open your web browser and navigate to http://127.0.0.1:8000/. You should see the WhatsApp Portal interface.
+Whenever your endpoint receives a verification request, it must:
+- Verify that the hub.verify_token value matches the string you set in the Verify Token field when you configure the Webhooks product in your App Dashboard (you haven't set up this token string yet).
+- Respond with the hub.challenge value.
 
-🔗 Webhook Configuration in Meta Developers Dashboard
-For your portal to receive messages from WhatsApp users, you need to tell Meta where to send them (your webhook URL).
+#### Validating Payloads
 
-Go to your Meta Developers App Dashboard.
+[Source](https://developers.facebook.com/docs/graph-api/webhooks/getting-started#:~:text=int-,Validating%20Payloads,-We%20sign%20all)
 
-Select your application.
+WhatsApp signs all Event Notification payloads with a SHA256 signature and include the signature in the request's X-Hub-Signature-256 header, preceded with sha256=. You don't have to validate the payload, but you should.
 
-In the left sidebar, navigate to WhatsApp > API Setup.
+To validate the payload:
+- Generate a SHA256 signature using the payload and your app's App Secret.
+- Compare your signature to the signature in the X-Hub-Signature-256 header (everything after sha256=). If the signatures match, the payload is genuine.
 
-Scroll down to the "Webhooks" section.
 
-Click Configure a webhook (or "Edit webhook" if already configured).
+## Step 5: Learn about the API and Build Your App
 
-Callback URL: Paste the ngrok HTTPS URL you copied (e.g., https://abcdef12345.ngrok-free.app) followed by /webhook.
-Example: https://abcdef12345.ngrok-free.app/webhook
+Review the developer documentation to learn how to build your app and start sending messages. [See documentation](https://developers.facebook.com/docs/whatsapp/cloud-api).
 
-Verify Token: Enter the exact VERIFY_TOKEN string you defined in your APP/config.py.
+## Step 6: Integrate AI into the Application
 
-Click Verify and Save.
+Now that we have an end to end connection, we can make the bot a little more clever then just shouting at us in upper case. All you have to do is come up with your own `generate_response()` function in [whatsapp_utils.py](https://github.com/daveebbelaar/python-whatsapp-bot/blob/main/app/utils/whatsapp_utils.py).
 
-After verification, click Manage next to "Webhooks" to subscribe to events.
+If you want a cookie cutter example to integrate the OpenAI Assistans API with a retrieval tool, then follow these steps.
+1. Watch this video: [OpenAI Assistants Tutorial](https://www.youtube.com/watch?v=0h1ry-SqINc)
+2. Create your own assistant with OpenAI and update your `OPENAI_API_KEY` and `OPENAI_ASSISTANT_ID` in the environment variables.
+3. Provide your assistant with data and instructions
+4. Update [openai_service.py](https://github.com/daveebbelaar/python-whatsapp-bot/blob/main/app/services/openai_service.py) to your use case.
+5. Import `generate_reponse` into [whatsapp_utils.py](https://github.com/daveebbelaar/python-whatsapp-bot/blob/main/app/utils/)
+6. Update `process_whatsapp_message()` with the new `generate_reponse()` function.
 
-Find the messages field and click Subscribe. This will ensure your application receives notifications for incoming user messages and message status updates (sent, delivered, read).
+## Step 7: Add a Phone Number
 
-👨‍💻 Usage
-Receiving Messages: Once the webhook is configured, send a message to your WhatsApp Business phone number from any personal WhatsApp account. You should see the message appear in your portal's conversation list and the chat display after a few seconds (due to the 5-second refresh interval).
+When you’re ready to use your app for a production use case, you need to use your own phone number to send messages to your users.
 
-Sending Replies:
+To start sending messages to any WhatsApp number, add a phone number. To manage your account information and phone number, [see the Overview page.](https://business.facebook.com/wa/manage/home/) and the [WhatsApp docs](https://developers.facebook.com/docs/whatsapp/phone-numbers/).
 
-Click on a conversation in the left panel.
+If you want to use a number that is already being used in the WhatsApp customer or business app, you will have to fully migrate that number to the business platform. Once the number is migrated, you will lose access to the WhatsApp customer or business app. [See Migrate Existing WhatsApp Number to a Business Account for information](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started/migrate-existing-whatsapp-number-to-a-business-account).
 
-Type your message into the input field at the bottom.
+Once you have chosen your phone number, you have to add it to your WhatsApp Business Account. [See Add a Phone Number](https://developers.facebook.com/docs/whatsapp/cloud-api/get-started/add-a-phone-number).
 
-Click the "Send" button (or press Enter).
+When dealing with WhatsApp Business API and wanting to experiment without affecting your personal number, you have a few options:
 
-The message will be sent to the user and recorded in your portal.
+1. Buy a New SIM Card
+2. Virtual Phone Numbers
+3. Dual SIM Phones
+4. Use a Different Device
+5. Temporary Number Services
+6. Dedicated Devices for Development
 
-☁️ Hosting Online (Deployment)
-The local setup is great for development, but for a live, always-on portal, you'll need to deploy it to a hosting provider.
+**Recommendation**: If this is for a more prolonged or professional purpose, using a virtual phone number service or purchasing a new SIM card for a dedicated device is advisable. For quick tests, a temporary number might suffice, but always be cautious about security and privacy. Remember that once a number is associated with WhatsApp Business API, it cannot be used with regular WhatsApp on a device unless you deactivate it from the Business API and reverify it on the device.
 
-Important Considerations for Online Hosting:
+## Datalumina
 
-Production WSGI Server: You must use a production-ready WSGI server like Gunicorn (already included in requirements.txt) to serve your Flask app. You'll typically use a command like gunicorn run:app on your server.
+This document is provided to you by Datalumina. We help data analysts, engineers, and scientists launch and scale a successful freelance business — $100k+ /year, fun projects, happy clients. If you want to learn more about what we do, you can visit our [website](https://www.datalumina.com/) and subscribe to our [newsletter](https://www.datalumina.com/newsletter). Feel free to share this document with your data friends and colleagues.
 
-Environment Variables: Crucially, do not commit your config.py with sensitive data directly to a public Git repository. Use environment variables on your hosting platform to store ACCESS_TOKEN, VERIFY_TOKEN, PHONE_NUMBER_ID, APP_SECRET, and SECRET_KEY. The APP/__init__.py is designed to read from environment variables first, then config.py.
-
-Persistent Storage: The messages.json file is not persistent on most cloud hosting platforms (it will be reset on restarts or redeployments). For production, you will need to replace this with a proper database solution like:
-
-Firestore (Recommended by the AI for collaborative apps): A NoSQL cloud database that integrates well with Google Cloud.
-
-PostgreSQL/MySQL: Relational databases.
-
-SQLite: Simpler, file-based, but still subject to ephemeral storage issues if not configured carefully for cloud environments.
-
-Recommended Hosting Platforms for Flask:
-
-Render.com: User-friendly PaaS (Platform as a Service) with a free tier for web services. Ideal for getting started quickly.
-
-PythonAnywhere: Another excellent option for Python web apps, offering a free tier.
-
-Google Cloud Run / AWS Fargate / Azure Container Apps: Serverless container platforms that offer high scalability but require Docker knowledge.
-
-After deploying, remember to update your WhatsApp webhook URL in the Meta Developers App Dashboard to your new public URL (e.g., https://your-app-name.render.com/webhook).
-
-⚠️ Troubleshooting
-401 Client Error: Unauthorized:
-
-Issue: Your ACCESS_TOKEN is incorrect, expired, or lacks the necessary permissions.
-
-Solution: Go to your Meta Developers Dashboard, generate a new ACCESS_TOKEN (especially if you're using a temporary one), and update it in your APP/config.py. Restart your Flask app.
-
-.../None/messages in URL:
-
-Issue: Your PHONE_NUMBER_ID is not being loaded correctly.
-
-Solution: Ensure PHONE_NUMBER_ID is correctly defined in APP/config.py and has no typos. Restart your Flask app.
-
-No messages appearing in the portal:
-
-Issue: Webhook not correctly configured or your server isn't reachable by Meta.
-
-Solution:
-
-Verify ngrok is running and providing an HTTPS URL if local.
-
-Double-check the "Callback URL" and "Verify Token" in your Meta Developers Dashboard webhook settings.
-
-Ensure your Flask app is running and your /webhook endpoint is accessible.
-
-Check your Flask console logs for any errors when Meta tries to hit your webhook.
-
-✨ Future Enhancements
-Database Integration: Migrate from messages.json to a proper database (e.g., Firestore, PostgreSQL) for persistent and scalable storage.
-
-Authentication: Add user authentication to the web portal to restrict access.
-
-Real-time Updates: Implement WebSockets to push new messages to the frontend instantly instead of relying on polling (5-second refresh).
-
-Media Handling: Enhance the portal to display images, videos, and other media types received from WhatsApp, and allow sending them.
-
-Message Templates: Implement the ability to send pre-approved message templates for business-initiated conversations.
-
-Improved UI/UX: Enhance the portal's design, add search, filtering, and more detailed conversation views.
-
-Error Handling in UI: Provide more user-friendly error messages in the frontend.
-
-📄 License
-This project is open-source and available under the MIT License.
+## Tutorials
+For video tutorials, visit the YouTube channel: [youtube.com/@daveebbelaar](https://www.youtube.com/@daveebbelaar).
