@@ -348,6 +348,16 @@
         .profile-modal-content .close:hover {
             color: #111b21;
         }
+
+        /* User Phone Number Display */
+        .user-phone {
+            font-size: 12px;
+            color: #667781;
+            margin-right: 8px;
+            padding: 4px 8px;
+            background: #f0f2f5;
+            border-radius: 12px;
+        }
     </style>
 </head>
 <body class="h-screen flex">
@@ -404,10 +414,12 @@
                 </div>
                 
                 <!-- Phone Selector -->
-                <select id="phone-selector" class="w-full p-3 rounded-lg bg-white bg-opacity-20 text-white border border-white border-opacity-30 focus:outline-none focus:bg-opacity-30">
-                    <option value="608867502309431" class="text-gray-800">📱 Eventio Business</option>
-                    <option value="630482473482641" class="text-gray-800">📦 Package with Sense</option>
-                </select>
+                <div class="relative">
+                    <select id="phone-selector" class="w-full p-3 rounded-lg bg-white bg-opacity-20 text-white border border-white border-opacity-30 focus:outline-none focus:bg-opacity-30">
+                        <option value="608867502309431" class="text-gray-800">📱 Eventio Business</option>
+                        <option value="630482473482641" class="text-gray-800">📦 Package with Sense</option>
+                    </select>
+                </div>
             </div>
 
             <!-- Search Bar -->
@@ -442,7 +454,8 @@
                             <div id="chat-status" class="text-sm text-gray-500">Choose a conversation to start messaging</div>
                         </div>
                     </div>
-                    <div class="flex gap-4 text-gray-600">
+                    <div class="flex items-center gap-4 text-gray-600">
+                        <span id="user-phone" class="user-phone"></span>
                         <i class="fas fa-search cursor-pointer hover:text-gray-900 p-2"></i>
                         <i class="fas fa-ellipsis-vertical cursor-pointer hover:text-gray-900 p-2"></i>
                     </div>
@@ -482,7 +495,7 @@
                     <i class="fas fa-smile"></i>
                 </button>
                 <input type="file" id="image-input" accept="image/*" style="display: none;">
-                <button id="image-button" class="image-button">
+                <button id="image-button" class="image-button" title="Send image">
                     <i class="fas fa-image"></i>
                 </button>
                 <textarea id="message-input" placeholder="Type a message" class="message-input" rows="1" disabled></textarea>
@@ -496,7 +509,7 @@
     <script>
         let currentWaId = null;
         let currentContactName = null;
-        let currentPhoneId = '608867502309431';
+        let currentPhoneId = '608867502309431'; // Default to Eventio Business
         let lastMessageCounts = {};
         let isTyping = false;
         let typingTimeout;
@@ -520,6 +533,7 @@
         const notificationSound = document.getElementById('notification-sound');
         const emojiPicker = document.querySelector('emoji-picker');
         const profileModal = document.getElementById('profile-modal');
+        const userPhoneDisplay = document.getElementById('user-phone');
 
         // Profile Modal functions
         function showProfileModal() {
@@ -535,7 +549,6 @@
         }
 
         function formatPhoneNumber(waId) {
-            // Assuming waId is a phone number without country code
             return '+' + waId.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
         }
 
@@ -580,6 +593,10 @@
 
         // Image handling
         imageButton.addEventListener('click', () => {
+            if (!currentWaId || !currentPhoneId) {
+                showNotification('Error', 'Please select a chat first', '?');
+                return;
+            }
             imageInput.click();
         });
 
@@ -592,7 +609,7 @@
             reader.onload = async (event) => {
                 const tempMessage = {
                     body: '',
-                    image: event.target.result,
+                    image_url: event.target.result,
                     direction: 'outbound',
                     timestamp: new Date().toISOString(),
                     status: 'sending'
@@ -604,21 +621,42 @@
                     formData.append('image', file);
                     formData.append('wa_id', currentWaId);
                     formData.append('phone_id', currentPhoneId);
+                    formData.append('caption', ''); // Add caption if needed
+
+                    messageInput.disabled = true;
+                    sendButton.disabled = true;
+                    emojiButton.disabled = true;
+                    imageButton.disabled = true;
+                    sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
                     const response = await fetch('/api/send-image', {
                         method: 'POST',
                         body: formData
                     });
 
+                    const responseData = await response.json();
+
                     if (!response.ok) {
-                        throw new Error(`Server error: ${response.status}`);
+                        throw new Error(responseData.message || `Server error: ${response.status}`);
                     }
 
                     updateContactPreview(currentWaId, '[Image]');
+                    lastMessageTimestamps[currentWaId] = tempMessage.timestamp;
+
+                    // Reload messages to get the actual message data from the server
+                    await loadMessages(currentWaId, currentContactName, currentPhoneId);
                 } catch (error) {
                     console.error('Error sending image:', error);
+                    showNotification('Error', 'Failed to send image: ' + error.message, '?');
                     const tempMsg = messagesDiv.querySelector(`[data-message-id="${tempMessage.timestamp}"]`);
                     if (tempMsg) tempMsg.remove();
+                } finally {
+                    messageInput.disabled = false;
+                    sendButton.disabled = false;
+                    emojiButton.disabled = false;
+                    imageButton.disabled = false;
+                    sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                    imageInput.value = ''; // Reset file input
                 }
             };
 
@@ -674,8 +712,8 @@
             
             const avatar = msg.direction === 'inbound' ? (currentContactName ? currentContactName.charAt(0).toUpperCase() : '?') : '';
             
-            const content = msg.image 
-                ? `<img src="${msg.image}" class="message-image" alt="Sent image">`
+            const content = msg.image_url 
+                ? `<img src="${msg.image_url}" class="message-image" alt="${msg.direction === 'inbound' ? 'Received' : 'Sent'} image">`
                 : `<p class="text-sm whitespace-pre-wrap">${msg.body}</p>`;
 
             msgDiv.innerHTML = `
@@ -699,7 +737,7 @@
                 if (currentWaId !== msg.wa_id) {
                     showNotification(
                         currentContactName || 'Unknown Contact', 
-                        msg.image ? '[Image]' : (msg.body.length > 50 ? msg.body.substring(0, 50) + '...' : msg.body),
+                        msg.image_url ? '[Image]' : (msg.body.length > 50 ? msg.body.substring(0, 50) + '...' : msg.body),
                         avatar
                     );
                 }
@@ -717,6 +755,7 @@
             chatStatus.textContent = 'last seen recently';
             chatAvatar.querySelector('span').textContent = name ? name.charAt(0).toUpperCase() : '?';
             statusIndicator.classList.remove('hidden');
+            userPhoneDisplay.textContent = formatPhoneNumber(waId);
             
             try {
                 await fetch(`/api/mark-read`, {
@@ -747,12 +786,12 @@
                     lastMessageTimestamps[waId] = messages[messages.length - 1]?.timestamp || 0;
                 }
                 
-                updateContactPreview(waId, messages[messages.length - 1]?.image ? '[Image]' : messages[messages.length - 1]?.body || 'No messages yet');
+                updateContactPreview(waId, messages[messages.length - 1]?.image_url ? '[Image]' : messages[messages.length - 1]?.body || 'No messages yet');
                 
                 messageInput.disabled = false;
                 sendButton.disabled = false;
                 emojiButton.disabled = false;
-                imageButton.disabled = false;
+                imageButton.disabled = false; // Enable image button
                 messageInput.focus();
                 
             } catch (error) {
@@ -898,7 +937,7 @@
                         
                         const unreadCount = messages.filter(msg => msg.direction === 'inbound' && !msg.read).length;
                         const lastMessage = messages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
-                        const lastMessageText = lastMessage ? (lastMessage.image ? '[Image]' : lastMessage.body) : 'No messages yet';
+                        const lastMessageText = lastMessage ? (lastMessage.image_url ? '[Image]' : lastMessage.body) : 'No messages yet';
                         const lastMessageTime = lastMessage ? new Date(lastMessage.timestamp).toLocaleTimeString([], { 
                             hour: '2-digit', 
                             minute: '2-digit' 
@@ -952,9 +991,7 @@
                             
                             contactsList.prepend(contactItem);
                             lastMessageCounts[contact.wa_id] = messages.length;
-                        } else {
-                            updateContactPreview(contact.wa_id, lastMessageText);
-                        }
+                        } Specs
                     }
                 } else if (!contactsList.querySelector('.contact-item')) {
                     contactsList.innerHTML = `
@@ -985,7 +1022,7 @@
             if (!currentWaId || !currentPhoneId) return;
             
             try {
-                const response = await fetch(`/api/chats/${currentWaId}?phone_id=${currentPhoneId}&since=${encodeURIComponent(lastMessageTimestamps[currentWaId] || '')}`);
+                const response = await fetch(`/api/chats/${currentWaId}?phone_id=${currentPhoneId}`);
                 if (!response.ok) return;
                 
                 const data = await response.json();
@@ -994,10 +1031,12 @@
                 if (messages.length > 0) {
                     const wasAtBottom = messagesDiv.scrollTop + messagesDiv.clientHeight >= messagesDiv.scrollHeight;
                     messages.forEach(msg => {
-                        appendMessageToChat(msg);
-                        lastMessageTimestamps[currentWaId] = msg.timestamp;
-                        if (msg.direction === 'inbound') {
-                            updateContactPreview(currentWaId, msg.image ? '[Image]' : msg.body);
+                        if (new Date(msg.timestamp) > new Date(lastMessageTimestamps[currentWaId] || 0)) {
+                            appendMessageToChat(msg);
+                            lastMessageTimestamps[currentWaId] = msg.timestamp;
+                            if (msg.direction === 'inbound') {
+                                updateContactPreview(currentWaId, msg.image_url ? '[Image]' : msg.body);
+                            }
                         }
                     });
                     if (wasAtBottom) {
@@ -1019,6 +1058,7 @@
             chatStatus.textContent = 'Choose a conversation to start messaging';
             chatAvatar.querySelector('span').textContent = '?';
             statusIndicator.classList.add('hidden');
+            userPhoneDisplay.textContent = '';
             messagesDiv.innerHTML = `
                 <div class="flex items-center justify-center h-full text-gray-500">
                     <div class="text-center">

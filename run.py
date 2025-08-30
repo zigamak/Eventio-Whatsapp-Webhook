@@ -1,9 +1,9 @@
-# run.py
 import logging
 from flask import Flask
 from dotenv import load_dotenv
 from config import DEBUG, SECRET_KEY
 from views import bp
+from utils.db_manager import db_manager
 
 # Load environment variables from .env file
 load_dotenv()
@@ -21,6 +21,7 @@ def create_app():
     # Load configuration from a separate config.py file
     app.config['DEBUG'] = DEBUG
     app.config['SECRET_KEY'] = SECRET_KEY
+    app.config['DB_MANAGER'] = db_manager
 
     # Register the main blueprint for the application's routes
     app.register_blueprint(bp)
