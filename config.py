@@ -15,4 +15,4 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 # Flask Application Settings
 DEBUG = os.getenv("FLASK_DEBUG") == "True"
-SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
+

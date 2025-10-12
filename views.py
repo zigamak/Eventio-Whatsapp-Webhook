@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, jsonify, request
-from config import WHATSAPP_ACCESS_TOKEN, EVENTIO_PHONE_ID, PACKAGE_WITH_SENSE_PHONE_ID, VERSION, VERIFY_TOKEN
+from config import WHATSAPP_ACCESS_TOKEN, PACKAGE_WITH_SENSE_PHONE_ID, VERSION, VERIFY_TOKEN
 import logging
 import requests
 import os
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 @bp.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', phone_id=PACKAGE_WITH_SENSE_PHONE_ID)
 
 @bp.route('/api/chats', methods=['GET'])
 def get_chats():
@@ -32,7 +32,6 @@ def get_chats():
         table_name = get_table_name(phone_id)
         
         # Direct query to get chats with last message timestamp
-        # This bypasses the get_chats() function and queries directly
         chats = db_manager.execute_query(
             f"""
             SELECT DISTINCT 
@@ -84,7 +83,6 @@ def get_chats():
         
     except Exception as e:
         logger.error(f"Error fetching chats for phone_id {phone_id}: {e}")
-        # Add more detailed error information
         import traceback
         logger.error(f"Full traceback: {traceback.format_exc()}")
         return jsonify({"message": "Error fetching chats", "error": str(e)}), 500
