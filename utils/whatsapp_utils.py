@@ -1,8 +1,8 @@
+#whatsapp_utils,py
 import logging
 import os
 from datetime import datetime
 import requests
-from .db_manager import db_manager
 from config import WHATSAPP_ACCESS_TOKEN, VERSION
 
 # Set up logging
@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 # Map phone IDs to table names
 PHONE_ID_TO_TABLE = {
-    'EVENTIO_PHONE_ID': 'eventio_messages',
-    'PACKAGE_WITH_SENSE_PHONE_ID': 'package_with_sense_messages'
+    '608867502309431': 'eventio_messages',
+    '630482473482641': 'package_with_sense_messages'
 }
 
 def get_table_name(phone_id):
@@ -26,17 +26,17 @@ def get_table_name(phone_id):
     """
     return PHONE_ID_TO_TABLE.get(phone_id, 'eventio_messages')
 
-def save_message(message_data, phone_id):
+def save_message(db_manager, message_data, phone_id):
     """
     Save a message to the PostgreSQL database.
     
     Args:
+        db_manager: DatabaseManager instance.
         message_data (dict): Message data to save.
         phone_id (str): Phone number ID to determine the table.
     """
     try:
         table_name = get_table_name(phone_id)
-        # Updated to include image fields
         query = """
             SELECT insert_message(
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
@@ -57,9 +57,10 @@ def save_message(message_data, phone_id):
             message_data.get('image_id')
         )
         db_manager.execute_query(query, params)
-        logger.info(f"Message saved to {table_name}: {message_data}")
+        logger.info(f"Message saved to {table_name}: {message_data['id']}")
     except Exception as e:
         logger.error(f"Error saving message to {table_name}: {e}")
+        raise
 
 def get_text_message_input(recipient, text):
     """
@@ -123,13 +124,10 @@ def send_message(data, phone_id):
         "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
         "Content-Type": "application/json"
     }
-    try:
-        response = requests.post(url, json=data, headers=headers)
-        response.raise_for_status()
-        return response, response.status_code
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error sending message: {e}")
-        return {"error": str(e)}, 500
+    
+    response = requests.post(url, json=data, headers=headers)
+    response.raise_for_status()
+    return response, response.status_code
 
 def send_image_message(recipient, image_url, caption="", phone_id=None):
     """
@@ -159,7 +157,6 @@ def download_whatsapp_image(image_id, phone_id):
         str or None: Local file path if successful, None if failed.
     """
     try:
-        # Step 1: Get media URL
         url = f"https://graph.facebook.com/{VERSION}/{image_id}"
         headers = {
             "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}"
@@ -177,45 +174,34 @@ def download_whatsapp_image(image_id, phone_id):
             logger.error("No media URL in response")
             return None
         
-        # Step 2: Download the actual image
         image_response = requests.get(media_url, headers=headers)
         if not image_response.ok:
             logger.error(f"Failed to download image: {image_response.text}")
             return None
         
-        # Step 3: Save to local file
         uploads_dir = "static/uploads"
         os.makedirs(uploads_dir, exist_ok=True)
         
-        # Determine file extension from content type
         content_type = image_response.headers.get('content-type', '')
-        if 'jpeg' in content_type:
-            ext = '.jpg'
-        elif 'png' in content_type:
-            ext = '.png'
-        elif 'gif' in content_type:
-            ext = '.gif'
-        else:
-            ext = '.jpg'  # default
-        
+        ext = '.jpg' if 'jpeg' in content_type else '.png' if 'png' in content_type else '.gif' if 'gif' in content_type else '.jpg'
         filename = f"{image_id}{ext}"
         filepath = os.path.join(uploads_dir, filename)
         
         with open(filepath, 'wb') as f:
             f.write(image_response.content)
         
-        # Return web-accessible path
         return f"/static/uploads/{filename}"
         
     except Exception as e:
         logger.error(f"Error downloading image {image_id}: {e}")
         return None
 
-def process_image_message(message_data, contact_info, phone_id):
+def process_image_message(db_manager, message_data, contact_info, phone_id):
     """
     Process incoming image message.
     
     Args:
+        db_manager: DatabaseManager instance.
         message_data (dict): Image message data from webhook.
         contact_info (dict): Contact information.
         phone_id (str): Phone number ID.
@@ -228,7 +214,6 @@ def process_image_message(message_data, contact_info, phone_id):
         mime_type = message_data.get('image', {}).get('mime_type')
         sha256 = message_data.get('image', {}).get('sha256')
         
-        # Download the image
         image_url = download_whatsapp_image(image_id, phone_id)
         
         message_info = {
@@ -245,7 +230,7 @@ def process_image_message(message_data, contact_info, phone_id):
             "image_id": image_id
         }
         
-        save_message(message_info, phone_id)
+        save_message(db_manager, message_info, phone_id)
         logger.info(f"Image message processed and saved: {message_info['id']}")
         return message_info
         
@@ -275,11 +260,12 @@ def is_valid_whatsapp_message(body):
     except (TypeError, IndexError):
         return False
 
-def process_whatsapp_message(body, phone_id):
+def process_whatsapp_message(db_manager, body, phone_id):
     """
     Process an incoming WhatsApp message or status update and save it to the database.
     
     Args:
+        db_manager: DatabaseManager instance.
         body (dict): Webhook payload.
         phone_id (str): Phone number ID to determine the table.
     """
@@ -308,7 +294,6 @@ def process_whatsapp_message(body, phone_id):
             
             message_type = message.get('type')
             
-            # Handle only supported message types (text and image)
             if message_type == "text":
                 message_body = message["text"]["body"]
                 
@@ -326,16 +311,14 @@ def process_whatsapp_message(body, phone_id):
                     "image_id": None
                 }
                 
-                save_message(message_data, phone_id)
+                save_message(db_manager, message_data, phone_id)
                 logger.info(f"Processed incoming text message from {wa_id}: {message_body}")
                 
             elif message_type == "image":
-                # Process image message
-                process_image_message(message, contact_info, phone_id)
+                process_image_message(db_manager, message, contact_info, phone_id)
                 logger.info(f"Processed incoming image message from {wa_id}")
                 
             else:
-                # Ignore unsupported message types
                 logger.debug(f"Ignoring unsupported message type: {message_type} from {wa_id}")
                 return
         

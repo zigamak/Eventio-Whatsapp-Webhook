@@ -1,41 +1,51 @@
 import logging
+import os
 from flask import Flask
 from dotenv import load_dotenv
-from config import DEBUG, SECRET_KEY
-from views import bp
-from utils.db_manager import db_manager
 
-# Load environment variables from .env file
+# Import your blueprint from the views module
+from views import bp
+
+# Load environment variables from the .env file
 load_dotenv()
 
-# Configure logging to display INFO level messages and above
-logging.basicConfig(level=logging.INFO)
+# Configure logging for the application
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 def create_app():
     """
     Creates and configures the Flask application.
-    This function acts as a factory, which is a good practice for larger apps.
     """
     app = Flask(__name__)
+    
+    # Get configuration values from environment variables
+    app.config['DEBUG'] = os.getenv('FLASK_DEBUG', 'False').lower() in ['true', '1', 't']
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
-    # Load configuration from a separate config.py file
-    app.config['DEBUG'] = DEBUG
-    app.config['SECRET_KEY'] = SECRET_KEY
-    app.config['DB_MANAGER'] = db_manager
+    # Ensure SECRET_KEY is set
+    if not app.config['SECRET_KEY']:
+        logging.error("SECRET_KEY environment variable is not set. This is a security risk.")
+        # Optionally, you could set a default or raise an error
+        # app.config['SECRET_KEY'] = 'a-super-secret-default-key'
 
-    # Register the main blueprint for the application's routes
+    # Register the blueprint
     app.register_blueprint(bp)
-
+    
     return app
 
-# The Flask application instance is created here.
-# Gunicorn will look for a callable object named 'app' to run the application.
+# Create the application instance
 app = create_app()
 
-# This block is added back for development purposes.
-# It allows you to run the file directly without Gunicorn, which is handy
-# for local testing and debugging. In a production environment, this block
-# will be ignored by Gunicorn.
 if __name__ == "__main__":
-    logging.info("Flask app started in development mode")
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    # Get host and port from environment variables, with defaults
+    host = os.getenv('FLASK_HOST', '0.0.0.0')
+    port = int(os.getenv('FLASK_PORT', 8000))
+    
+    logging.info(f"Starting Flask app on {host}:{port}")
+    
+    # Run the application
+    app.run(host=host, port=port)

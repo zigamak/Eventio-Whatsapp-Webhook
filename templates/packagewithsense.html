@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Business Portal</title>
+    <title>Package with Sense WhatsApp Business Portal</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Font: Inter -->
@@ -273,7 +273,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         
-        .send-button, .emoji-button, .image-button {
+        .send-button, .emoji-button, .media-button {
             width: 48px;
             height: 48px;
             border-radius: 50%;
@@ -288,12 +288,12 @@
             font-size: 18px;
         }
         
-        .send-button:hover, .emoji-button:hover, .image-button:hover {
+        .send-button:hover, .emoji-button:hover, .media-button:hover {
             background: #22c55e;
             transform: scale(1.05);
         }
         
-        .send-button:disabled, .emoji-button:disabled, .image-button:disabled {
+        .send-button:disabled, .emoji-button:disabled, .media-button:disabled {
             background: #bbb;
             cursor: not-allowed;
             transform: scale(1);
@@ -307,7 +307,7 @@
             display: none;
         }
 
-        .message-image {
+        .message-media {
             max-width: 200px;
             border-radius: 8px;
             margin: 8px 0;
@@ -405,20 +405,12 @@
             <!-- Header -->
             <div class="header-gradient p-4 text-white">
                 <div class="flex items-center justify-between mb-4">
-                    <h1 class="text-xl font-semibold">Chats</h1>
+                    <h1 class="text-xl font-semibold">Package with Sense Chats</h1>
                     <div class="flex gap-3">
                         <i class="fas fa-circle-notch cursor-pointer hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-all"></i>
                         <i class="fas fa-comment-plus cursor-pointer hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-all"></i>
                         <i class="fas fa-ellipsis-vertical cursor-pointer hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-all"></i>
                     </div>
-                </div>
-                
-                <!-- Phone Selector -->
-                <div class="relative">
-                    <select id="phone-selector" class="w-full p-3 rounded-lg bg-white bg-opacity-20 text-white border border-white border-opacity-30 focus:outline-none focus:bg-opacity-30">
-                        <option value="608867502309431" class="text-gray-800">📱 Eventio Business</option>
-                        <option value="630482473482641" class="text-gray-800">📦 Package with Sense</option>
-                    </select>
                 </div>
             </div>
 
@@ -495,7 +487,7 @@
                     <i class="fas fa-smile"></i>
                 </button>
                 <input type="file" id="image-input" accept="image/*" style="display: none;">
-                <button id="image-button" class="image-button" title="Send image">
+                <button id="media-button" class="media-button" title="Send image">
                     <i class="fas fa-image"></i>
                 </button>
                 <textarea id="message-input" placeholder="Type a message" class="message-input" rows="1" disabled></textarea>
@@ -509,14 +501,11 @@
     <script>
         let currentWaId = null;
         let currentContactName = null;
-        let currentPhoneId = '608867502309431'; // Default to Eventio Business
+        const currentPhoneId = '{{ phone_id }}'; // Set directly from Flask template
         let lastMessageCounts = {};
-        let isTyping = false;
-        let typingTimeout;
         let lastMessageTimestamps = {};
 
         // DOM Elements
-        const phoneSelector = document.getElementById('phone-selector');
         const searchInput = document.getElementById('search-input');
         const contactsList = document.getElementById('contacts-list');
         const messagesDiv = document.getElementById('messages');
@@ -527,7 +516,7 @@
         const messageInput = document.getElementById('message-input');
         const sendButton = document.getElementById('send-button');
         const emojiButton = document.getElementById('emoji-button');
-        const imageButton = document.getElementById('image-button');
+        const mediaButton = document.getElementById('media-button');
         const imageInput = document.getElementById('image-input');
         const typingIndicator = document.getElementById('typing-indicator');
         const notificationSound = document.getElementById('notification-sound');
@@ -560,10 +549,7 @@
             document.getElementById('notification-avatar').textContent = avatar;
             
             notification.classList.add('show');
-            
-            setTimeout(() => {
-                hideNotification();
-            }, 4000);
+            setTimeout(hideNotification, 4000);
         }
 
         function hideNotification() {
@@ -591,8 +577,8 @@
             pickerContainer.style.display = pickerContainer.style.display === 'none' ? 'block' : 'none';
         });
 
-        // Image handling
-        imageButton.addEventListener('click', () => {
+        // Media handling
+        mediaButton.addEventListener('click', () => {
             if (!currentWaId || !currentPhoneId) {
                 showNotification('Error', 'Please select a chat first', '?');
                 return;
@@ -600,19 +586,18 @@
             imageInput.click();
         });
 
-        imageInput.addEventListener('change', async (e) => {
-            if (!currentWaId || !currentPhoneId || !e.target.files[0]) return;
+        async function handleImageUpload(file) {
+            if (!currentWaId || !currentPhoneId || !file) return;
             
-            const file = e.target.files[0];
             const reader = new FileReader();
-            
             reader.onload = async (event) => {
                 const tempMessage = {
-                    body: '',
+                    body: '📷 Image',
                     image_url: event.target.result,
                     direction: 'outbound',
                     timestamp: new Date().toISOString(),
-                    status: 'sending'
+                    status: 'sending',
+                    type: 'image'
                 };
                 appendMessageToChat(tempMessage);
 
@@ -621,12 +606,12 @@
                     formData.append('image', file);
                     formData.append('wa_id', currentWaId);
                     formData.append('phone_id', currentPhoneId);
-                    formData.append('caption', ''); // Add caption if needed
+                    formData.append('caption', '');
 
                     messageInput.disabled = true;
                     sendButton.disabled = true;
                     emojiButton.disabled = true;
-                    imageButton.disabled = true;
+                    mediaButton.disabled = true;
                     sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
                     const response = await fetch('/api/send-image', {
@@ -635,32 +620,32 @@
                     });
 
                     const responseData = await response.json();
-
                     if (!response.ok) {
                         throw new Error(responseData.message || `Server error: ${response.status}`);
                     }
 
                     updateContactPreview(currentWaId, '[Image]');
-                    lastMessageTimestamps[currentWaId] = tempMessage.timestamp;
-
-                    // Reload messages to get the actual message data from the server
+                    lastMessageTimestamps[currentWaId] = responseData.timestamp;
                     await loadMessages(currentWaId, currentContactName, currentPhoneId);
                 } catch (error) {
                     console.error('Error sending image:', error);
-                    showNotification('Error', 'Failed to send image: ' + error.message, '?');
+                    showNotification('Error', `Failed to send image: ${error.message}`, '?');
                     const tempMsg = messagesDiv.querySelector(`[data-message-id="${tempMessage.timestamp}"]`);
                     if (tempMsg) tempMsg.remove();
                 } finally {
                     messageInput.disabled = false;
                     sendButton.disabled = false;
                     emojiButton.disabled = false;
-                    imageButton.disabled = false;
+                    mediaButton.disabled = false;
                     sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
-                    imageInput.value = ''; // Reset file input
+                    imageInput.value = '';
                 }
             };
-
             reader.readAsDataURL(file);
+        }
+
+        imageInput.addEventListener('change', (e) => {
+            handleImageUpload(e.target.files[0]);
         });
 
         // Auto-resize textarea
@@ -673,48 +658,42 @@
         searchInput.addEventListener('input', function() {
             const searchTerm = this.value.toLowerCase();
             const contacts = contactsList.querySelectorAll('.contact-item');
-            
             contacts.forEach(contact => {
                 const name = contact.querySelector('.contact-name')?.textContent.toLowerCase() || '';
                 const lastMessage = contact.querySelector('.last-message')?.textContent.toLowerCase() || '';
-                
-                if (name.includes(searchTerm) || lastMessage.includes(searchTerm)) {
-                    contact.style.display = 'flex';
-                } else {
-                    contact.style.display = 'none';
-                }
+                contact.style.display = name.includes(searchTerm) || lastMessage.includes(searchTerm) ? 'flex' : 'none';
             });
         });
 
         function renderTicks(status) {
-            if (status === 'sent') {
-                return '<i class="fas fa-check tick-status"></i>';
-            } else if (status === 'delivered') {
-                return '<i class="fas fa-check-double tick-status"></i>';
-            } else if (status === 'read') {
-                return '<i class="fas fa-check-double tick-status read"></i>';
-            } else if (status === 'sending') {
-                return '<i class="fas fa-clock tick-status"></i>';
-            }
+            if (status === 'sent') return '<i class="fas fa-check tick-status"></i>';
+            if (status === 'delivered') return '<i class="fas fa-check-double tick-status"></i>';
+            if (status === 'read') return '<i class="fas fa-check-double tick-status read"></i>';
+            if (status === 'sending') return '<i class="fas fa-clock tick-status"></i>';
             return '';
         }
 
         function appendMessageToChat(msg) {
             const isNewMessage = !messagesDiv.querySelector(`[data-message-id="${msg.id || msg.timestamp}"]`);
-            
-            if (messagesDiv.querySelector('.h-full')) {
-                messagesDiv.innerHTML = '';
-            }
+            if (messagesDiv.querySelector('.h-full')) messagesDiv.innerHTML = '';
 
             const msgDiv = document.createElement('div');
             msgDiv.className = `flex ${msg.direction === 'inbound' ? 'justify-start' : 'justify-end'} mb-1`;
             msgDiv.setAttribute('data-message-id', msg.id || msg.timestamp);
             
             const avatar = msg.direction === 'inbound' ? (currentContactName ? currentContactName.charAt(0).toUpperCase() : '?') : '';
-            
-            const content = msg.image_url 
-                ? `<img src="${msg.image_url}" class="message-image" alt="${msg.direction === 'inbound' ? 'Received' : 'Sent'} image">`
-                : `<p class="text-sm whitespace-pre-wrap">${msg.body}</p>`;
+            let content = '';
+            if (msg.image_url) {
+                content = `<img src="${msg.image_url}" class="message-media" alt="${msg.direction === 'inbound' ? 'Received' : 'Sent'} image">`;
+                if (msg.body && msg.body.startsWith('📷 Image')) {
+                    const caption = msg.body.replace('📷 Image: ', '').trim();
+                    if (caption) {
+                        content += `<p class="text-sm whitespace-pre-wrap">${caption}</p>`;
+                    }
+                }
+            } else {
+                content = `<p class="text-sm whitespace-pre-wrap">${msg.body}</p>`;
+            }
 
             msgDiv.innerHTML = `
                 <div class="message-bubble ${msg.direction === 'inbound' ? 'inbound' : 'outbound'}">
@@ -728,19 +707,15 @@
             
             const wasAtBottom = messagesDiv.scrollTop + messagesDiv.clientHeight >= messagesDiv.scrollHeight;
             messagesDiv.appendChild(msgDiv);
-            if (wasAtBottom) {
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            }
+            if (wasAtBottom) messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-            if (isNewMessage && msg.direction === 'inbound' && currentWaId) {
+            if (isNewMessage && msg.direction === 'inbound' && currentWaId !== msg.wa_id) {
                 playNotificationSound();
-                if (currentWaId !== msg.wa_id) {
-                    showNotification(
-                        currentContactName || 'Unknown Contact', 
-                        msg.image_url ? '[Image]' : (msg.body.length > 50 ? msg.body.substring(0, 50) + '...' : msg.body),
-                        avatar
-                    );
-                }
+                showNotification(
+                    currentContactName || 'Unknown Contact', 
+                    msg.image_url ? '[Image]' : (msg.body.length > 50 ? msg.body.substring(0, 50) + '...' : msg.body),
+                    avatar
+                );
             }
         }
 
@@ -749,7 +724,6 @@
             
             currentWaId = waId;
             currentContactName = name;
-            currentPhoneId = phoneId;
             
             conversationTitle.textContent = name || 'Unknown Contact';
             chatStatus.textContent = 'last seen recently';
@@ -758,14 +732,23 @@
             userPhoneDisplay.textContent = formatPhoneNumber(waId);
             
             try {
-                await fetch(`/api/mark-read`, {
+                messagesDiv.innerHTML = `
+                    <div class="flex items-center justify-center h-full text-gray-500">
+                        <div class="text-center">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <p>Loading messages...</p>
+                        </div>
+                    </div>
+                `;
+                
+                await fetch('/api/mark-read', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ wa_id: waId, phone_id: phoneId })
                 });
                 
                 const response = await fetch(`/api/chats/${waId}?phone_id=${phoneId}`);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                if (!response.ok) throw new Error((await response.json()).message || `HTTP error! status: ${response.status}`);
                 
                 const data = await response.json();
                 const messages = data.messages || [];
@@ -781,26 +764,59 @@
                         </div>
                     `;
                 } else {
+                    const fragment = document.createDocumentFragment();
                     messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                    messages.forEach(msg => appendMessageToChat(msg));
+                    messages.forEach(msg => {
+                        const msgDiv = document.createElement('div');
+                        msgDiv.className = `flex ${msg.direction === 'inbound' ? 'justify-start' : 'justify-end'} mb-1`;
+                        msgDiv.setAttribute('data-message-id', msg.id || msg.timestamp);
+                        
+                        let content = '';
+                        if (msg.image_url) {
+                            content = `<img src="${msg.image_url}" class="message-media" alt="${msg.direction === 'inbound' ? 'Received' : 'Sent'} image">`;
+                            if (msg.body && msg.body.startsWith('📷 Image')) {
+                                const caption = msg.body.replace('📷 Image: ', '').trim();
+                                if (caption) {
+                                    content += `<p class="text-sm whitespace-pre-wrap">${caption}</p>`;
+                                }
+                            }
+                        } else {
+                            content = `<p class="text-sm whitespace-pre-wrap">${msg.body}</p>`;
+                        }
+                        
+                        msgDiv.innerHTML = `
+                            <div class="message-bubble ${msg.direction === 'inbound' ? 'inbound' : 'outbound'}">
+                                ${content}
+                                <div class="message-time">
+                                    <span>${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    ${msg.direction === 'outbound' ? renderTicks(msg.status) : ''}
+                                </div>
+                            </div>
+                        `;
+                        fragment.appendChild(msgDiv);
+                    });
+                    messagesDiv.appendChild(fragment);
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
                     lastMessageTimestamps[waId] = messages[messages.length - 1]?.timestamp || 0;
                 }
                 
-                updateContactPreview(waId, messages[messages.length - 1]?.image_url ? '[Image]' : messages[messages.length - 1]?.body || 'No messages yet');
+                updateContactPreview(waId, messages[messages.length - 1]?.image_url ? '[Image]' : 
+                                          messages[messages.length - 1]?.body || 'No messages yet');
                 
                 messageInput.disabled = false;
                 sendButton.disabled = false;
                 emojiButton.disabled = false;
-                imageButton.disabled = false; // Enable image button
+                mediaButton.disabled = false;
                 messageInput.focus();
                 
             } catch (error) {
                 console.error('Error loading messages:', error);
+                showNotification('Error', `Failed to load messages: ${error.message}`, '?');
                 messagesDiv.innerHTML = `
                     <div class="flex items-center justify-center h-full text-red-500">
                         <div class="text-center">
                             <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
-                            <p>Failed to load messages</p>
+                            <p>Failed to load messages: ${error.message}</p>
                         </div>
                     </div>
                 `;
@@ -814,21 +830,14 @@
                 const unreadBadge = contactItem.querySelector('.unread-badge');
                 const timeEl = contactItem.querySelector('.last-message-time');
                 
-                if (lastMessageEl) {
-                    lastMessageEl.textContent = lastMessage;
-                }
-                
-                if (unreadBadge) {
-                    unreadBadge.remove();
-                }
-                
+                if (lastMessageEl) lastMessageEl.textContent = lastMessage.length > 50 ? lastMessage.substring(0, 50) + '...' : lastMessage;
+                if (unreadBadge) unreadBadge.remove();
                 if (timeEl) {
                     timeEl.textContent = new Date().toLocaleTimeString([], { 
                         hour: '2-digit', 
                         minute: '2-digit' 
                     });
                 }
-                
                 contactsList.prepend(contactItem);
             }
         }
@@ -847,7 +856,6 @@
 
         async function sendMessage() {
             if (!currentWaId || !currentPhoneId) return;
-            
             const messageBody = messageInput.value.trim();
             if (!messageBody) return;
             
@@ -855,7 +863,8 @@
                 body: messageBody,
                 direction: 'outbound',
                 timestamp: new Date().toISOString(),
-                status: 'sending'
+                status: 'sending',
+                type: 'text'
             };
             appendMessageToChat(tempMessage);
 
@@ -864,7 +873,7 @@
             messageInput.disabled = true;
             sendButton.disabled = true;
             emojiButton.disabled = true;
-            imageButton.disabled = true;
+            mediaButton.disabled = true;
             sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
             try {
@@ -878,13 +887,11 @@
                     })
                 });
                 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || `Server error: ${response.status}`);
-                }
+                const responseData = await response.json();
+                if (!response.ok) throw new Error(responseData.message || `Server error: ${response.status}`);
                 
                 updateContactPreview(currentWaId, messageBody);
-                lastMessageTimestamps[currentWaId] = tempMessage.timestamp;
+                lastMessageTimestamps[currentWaId] = responseData.timestamp;
                 
                 setTimeout(() => {
                     showTyping(true);
@@ -896,13 +903,14 @@
                 
             } catch (error) {
                 console.error('Error sending message:', error);
+                showNotification('Error', `Failed to send message: ${error.message}`, '?');
                 const tempMsg = messagesDiv.querySelector(`[data-message-id="${tempMessage.timestamp}"]`);
                 if (tempMsg) tempMsg.remove();
             } finally {
                 messageInput.disabled = false;
                 sendButton.disabled = false;
                 emojiButton.disabled = false;
-                imageButton.disabled = false;
+                mediaButton.disabled = false;
                 sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
                 messageInput.focus();
             }
@@ -912,8 +920,17 @@
             if (!currentPhoneId) return;
             
             try {
+                contactsList.innerHTML = `
+                    <div class="flex items-center justify-center h-32 text-gray-500">
+                        <div class="text-center">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <p>Loading conversations...</p>
+                        </div>
+                    </div>
+                `;
+                
                 const response = await fetch(`/api/chats?phone_id=${currentPhoneId}`);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                if (!response.ok) throw new Error((await response.json()).message || `HTTP error! status: ${response.status}`);
                 
                 const data = await response.json();
                 const existingContacts = new Set(
@@ -921,79 +938,8 @@
                         .map(item => item.getAttribute('data-wa-id'))
                 );
                 
-                if (data.chats && data.chats.length > 0) {
-                    data.chats.sort((a, b) => {
-                        const timeA = a.last_message_timestamp ? new Date(a.last_message_timestamp) : new Date(0);
-                        const timeB = b.last_message_timestamp ? new Date(b.last_message_timestamp) : new Date(0);
-                        return timeB - timeA;
-                    });
-                    
-                    for (const contact of data.chats) {
-                        const messagesResponse = await fetch(`/api/chats/${contact.wa_id}?phone_id=${currentPhoneId}`);
-                        if (!messagesResponse.ok) continue;
-                        
-                        const messagesData = await messagesResponse.json();
-                        const messages = messagesData.messages || [];
-                        
-                        const unreadCount = messages.filter(msg => msg.direction === 'inbound' && !msg.read).length;
-                        const lastMessage = messages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
-                        const lastMessageText = lastMessage ? (lastMessage.image_url ? '[Image]' : lastMessage.body) : 'No messages yet';
-                        const lastMessageTime = lastMessage ? new Date(lastMessage.timestamp).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                        }) : '';
-                        
-                        lastMessageTimestamps[contact.wa_id] = lastMessage ? lastMessage.timestamp : 0;
-                        
-                        const isOnline = Math.random() > 0.7;
-                        
-                        if (!existingContacts.has(contact.wa_id)) {
-                            const contactItem = document.createElement('div');
-                            contactItem.className = `contact-item p-4 cursor-pointer flex items-center gap-3 ${currentWaId === contact.wa_id ? 'active' : ''}`;
-                            contactItem.setAttribute('data-wa-id', contact.wa_id);
-                            
-                            const avatar = contact.name ? contact.name.charAt(0).toUpperCase() : '?';
-                            
-                            contactItem.innerHTML = `
-                                <div class="relative">
-                                    <div class="profile-picture">
-                                        <span>${avatar}</span>
-                                        ${isOnline ? '<div class="status-indicator status-online"></div>' : ''}
-                                    </div>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <h3 class="contact-name font-medium text-gray-900 truncate">${contact.name || 'Unknown Contact'}</h3>
-                                        <div class="flex items-center gap-2">
-                                            <span class="last-message-time text-xs text-gray-500">${lastMessageTime}</span>
-                                            ${unreadCount > 0 && currentWaId !== contact.wa_id ? `<div class="unread-badge">${unreadCount}</div>` : ''}
-                                        </div>
-                                    </div>
-                                    <p class="last-message text-sm text-gray-600 truncate">${lastMessageText}</p>
-                                </div>
-                            `;
-                            
-                            contactItem.addEventListener('click', async () => {
-                                document.querySelectorAll('.contact-item').forEach(item => 
-                                    item.classList.remove('active'));
-                                contactItem.classList.add('active');
-                                const badge = contactItem.querySelector('.unread-badge');
-                                if (badge) badge.remove();
-                                const timeEl = contactItem.querySelector('.last-message-time');
-                                if (timeEl && lastMessage) {
-                                    timeEl.textContent = new Date().toLocaleTimeString([], { 
-                                        hour: '2-digit', 
-                                        minute: '2-digit' 
-                                    });
-                                }
-                                await loadMessages(contact.wa_id, contact.name || 'Unknown Contact', currentPhoneId);
-                            });
-                            
-                            contactsList.prepend(contactItem);
-                            lastMessageCounts[contact.wa_id] = messages.length;
-                        } Specs
-                    }
-                } else if (!contactsList.querySelector('.contact-item')) {
+                contactsList.innerHTML = '';
+                if (!data.chats || data.chats.length === 0) {
                     contactsList.innerHTML = `
                         <div class="flex items-center justify-center h-32 text-gray-500">
                             <div class="text-center">
@@ -1002,82 +948,136 @@
                             </div>
                         </div>
                     `;
+                    return;
                 }
-            } catch (error) {
-                console.error('Error loading contacts:', error);
-                if (!contactsList.querySelector('.contact-item')) {
-                    contactsList.innerHTML = `
-                        <div class="flex items-center justify-center h-32 text-red-500">
-                            <div class="text-center">
-                                <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
-                                <p>Failed to load contacts</p>
+
+                data.chats.sort((a, b) => {
+                    const timeA = a.last_message_timestamp ? new Date(a.last_message_timestamp) : new Date(0);
+                    const timeB = b.last_message_timestamp ? new Date(b.last_message_timestamp) : new Date(0);
+                    return timeB - timeA;
+                });
+
+                const fragment = document.createDocumentFragment();
+                for (const contact of data.chats) {
+                    if (existingContacts.has(contact.wa_id)) continue;
+                    
+                    const messagesResponse = await fetch(`/api/chats/${contact.wa_id}?phone_id=${currentPhoneId}`);
+                    if (!messagesResponse.ok) continue;
+                    const messagesData = await messagesResponse.json();
+                    const messages = messagesData.messages || [];
+                    
+                    const unreadCount = messages.filter(msg => msg.direction === 'inbound' && !msg.read).length;
+                    const lastMessage = messages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+                    const lastMessageText = lastMessage ? (lastMessage.image_url ? '[Image]' : (lastMessage.body.length > 50 ? lastMessage.body.substring(0, 50) + '...' : lastMessage.body)) : 'No messages yet';
+                    const lastMessageTime = lastMessage ? new Date(lastMessage.timestamp).toLocaleTimeString([], { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                    }) : '';
+                    
+                    lastMessageCounts[contact.wa_id] = messages.length;
+                    lastMessageTimestamps[contact.wa_id] = lastMessage ? lastMessage.timestamp : 0;
+                    
+                    const isOnline = Math.random() > 0.7;
+                    const contactItem = document.createElement('div');
+                    contactItem.className = `contact-item p-4 cursor-pointer flex items-center gap-3 ${currentWaId === contact.wa_id ? 'active' : ''}`;
+                    contactItem.setAttribute('data-wa-id', contact.wa_id);
+                    
+                    const avatar = contact.name ? contact.name.charAt(0).toUpperCase() : '?';
+                    contactItem.innerHTML = `
+                        <div class="relative">
+                            <div class="profile-picture">
+                                <span>${avatar}</span>
+                                ${isOnline ? '<div class="status-indicator status-online"></div>' : ''}
                             </div>
                         </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center justify-between mb-1">
+                                <h3 class="contact-name font-medium text-gray-900 truncate">${contact.name || 'Unknown Contact'}</h3>
+                                <div class="flex items-center gap-2">
+                                    <span class="last-message-time text-xs text-gray-500">${lastMessageTime}</span>
+                                    ${unreadCount > 0 && currentWaId !== contact.wa_id ? `<div class="unread-badge">${unreadCount}</div>` : ''}
+                                </div>
+                            </div>
+                            <p class="last-message text-sm text-gray-600 truncate">${lastMessageText}</p>
+                        </div>
                     `;
+                    
+                    contactItem.addEventListener('click', async () => {
+                        document.querySelectorAll('.contact-item').forEach(item => item.classList.remove('active'));
+                        contactItem.classList.add('active');
+                        const badge = contactItem.querySelector('.unread-badge');
+                        if (badge) badge.remove();
+                        const timeEl = contactItem.querySelector('.last-message-time');
+                        if (timeEl && lastMessage) {
+                            timeEl.textContent = new Date().toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                            });
+                        }
+                        await loadMessages(contact.wa_id, contact.name || 'Unknown Contact', currentPhoneId);
+                    });
+                    
+                    fragment.appendChild(contactItem);
                 }
+                contactsList.appendChild(fragment);
+            } catch (error) {
+                console.error('Error loading contacts:', error);
+                showNotification('Error', `Failed to load contacts: ${error.message}`, '?');
+                contactsList.innerHTML = `
+                    <div class="flex items-center justify-center h-32 text-red-500">
+                        <div class="text-center">
+                            <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                            <p>Failed to load contacts: ${error.message}</p>
+                        </div>
+                    </div>
+                `;
             }
         }
 
         async function checkNewMessages() {
-            if (!currentWaId || !currentPhoneId) return;
-            
+            if (!currentPhoneId) return;
             try {
-                const response = await fetch(`/api/chats/${currentWaId}?phone_id=${currentPhoneId}`);
-                if (!response.ok) return;
-                
+                const response = await fetch(`/api/chats?phone_id=${currentPhoneId}`);
+                if (!response.ok) throw new Error((await response.json()).message || `HTTP error! status: ${response.status}`);
                 const data = await response.json();
-                const messages = data.messages || [];
+                const chats = data.chats || [];
                 
-                if (messages.length > 0) {
-                    const wasAtBottom = messagesDiv.scrollTop + messagesDiv.clientHeight >= messagesDiv.scrollHeight;
-                    messages.forEach(msg => {
-                        if (new Date(msg.timestamp) > new Date(lastMessageTimestamps[currentWaId] || 0)) {
-                            appendMessageToChat(msg);
-                            lastMessageTimestamps[currentWaId] = msg.timestamp;
-                            if (msg.direction === 'inbound') {
-                                updateContactPreview(currentWaId, msg.image_url ? '[Image]' : msg.body);
+                for (const contact of chats) {
+                    const messagesResponse = await fetch(`/api/chats/${contact.wa_id}?phone_id=${currentPhoneId}`);
+                    if (!messagesResponse.ok) continue;
+                    const messagesData = await messagesResponse.json();
+                    const messages = messagesData.messages || [];
+                    const messageCount = messages.length;
+                    
+                    if (lastMessageCounts[contact.wa_id] !== undefined && messageCount > lastMessageCounts[contact.wa_id]) {
+                        const newMessages = messages.filter(msg => new Date(msg.timestamp) > new Date(lastMessageTimestamps[contact.wa_id]));
+                        newMessages.forEach(msg => {
+                            if (msg.direction === 'inbound' && currentWaId !== contact.wa_id) {
+                                playNotificationSound();
+                                showNotification(
+                                    contact.name || 'Unknown Contact',
+                                    msg.image_url ? '[Image]' : (msg.body.length > 50 ? msg.body.substring(0, 50) + '...' : msg.body),
+                                    contact.name ? contact.name.charAt(0).toUpperCase() : '?'
+                                );
                             }
-                        }
-                    });
-                    if (wasAtBottom) {
-                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                            if (currentWaId === contact.wa_id) appendMessageToChat(msg);
+                        });
+                        lastMessageCounts[contact.wa_id] = messageCount;
+                        lastMessageTimestamps[contact.wa_id] = messages[messages.length - 1]?.timestamp || 0;
+                        updateContactPreview(
+                            contact.wa_id,
+                            messages[messages.length - 1]?.image_url ? '[Image]' :
+                            (messages[messages.length - 1]?.body.length > 50 ? messages[messages.length - 1]?.body.substring(0, 50) + '...' : messages[messages.length - 1]?.body) || 'No messages yet'
+                        );
                     }
                 }
             } catch (error) {
                 console.error('Error checking new messages:', error);
+                showNotification('Error', `Failed to check new messages: ${error.message}`, '?');
             }
         }
 
         // Event Listeners
-        phoneSelector.addEventListener('change', () => {
-            currentPhoneId = phoneSelector.value;
-            currentWaId = null;
-            currentContactName = null;
-            
-            conversationTitle.textContent = 'Select a chat';
-            chatStatus.textContent = 'Choose a conversation to start messaging';
-            chatAvatar.querySelector('span').textContent = '?';
-            statusIndicator.classList.add('hidden');
-            userPhoneDisplay.textContent = '';
-            messagesDiv.innerHTML = `
-                <div class="flex items-center justify-center h-full text-gray-500">
-                    <div class="text-center">
-                        <i class="fab fa-whatsapp text-8xl text-green-100 mb-4"></i>
-                        <h3 class="text-xl font-medium mb-2">Keep your phone connected</h3>
-                        <p class="text-sm max-w-sm">WhatsApp connects to your phone to sync messages. To reduce data usage, connect your phone to Wi-Fi.</p>
-                    </div>
-                </div>
-            `;
-            
-            messageInput.disabled = true;
-            sendButton.disabled = true;
-            emojiButton.disabled = true;
-            imageButton.disabled = true;
-            searchInput.value = '';
-            
-            loadContacts();
-        });
-
         sendButton.addEventListener('click', sendMessage);
         
         messageInput.addEventListener('keypress', (e) => {
@@ -1090,11 +1090,7 @@
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             loadContacts();
-
-            // Poll for new messages every 5 seconds
             setInterval(checkNewMessages, 5000);
-
-            // Simulate random online status changes
             setInterval(() => {
                 const indicators = document.querySelectorAll('.status-indicator');
                 indicators.forEach(indicator => {
@@ -1107,9 +1103,7 @@
         });
 
         // Handle notification clicks
-        document.getElementById('notification').addEventListener('click', () => {
-            hideNotification();
-        });
+        document.getElementById('notification').addEventListener('click', hideNotification);
 
         // Close notification and modal on escape key
         document.addEventListener('keydown', (e) => {
@@ -1122,9 +1116,7 @@
 
         // Prevent form submission on Enter in search
         searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-            }
+            if (e.key === 'Enter') e.preventDefault();
         });
 
         // Add ripple effect to buttons
@@ -1140,10 +1132,7 @@
             circle.classList.add('ripple');
 
             const ripple = button.getElementsByClassName('ripple')[0];
-            if (ripple) {
-                ripple.remove();
-            }
-
+            if (ripple) ripple.remove();
             button.appendChild(circle);
         }
 
@@ -1157,7 +1146,6 @@
                 animation: ripple-animation 0.6s linear;
                 pointer-events: none;
             }
-            
             @keyframes ripple-animation {
                 to {
                     transform: scale(4);
@@ -1169,7 +1157,7 @@
 
         sendButton.addEventListener('click', createRipple);
         emojiButton.addEventListener('click', createRipple);
-        imageButton.addEventListener('click', createRipple);
+        mediaButton.addEventListener('click', createRipple);
     </script>
 </body>
 </html>
