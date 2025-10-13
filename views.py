@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, jsonify, request
-from config import WHATSAPP_ACCESS_TOKEN, PACKAGE_WITH_SENSE_PHONE_ID, VERSION, VERIFY_TOKEN
+from config import WHATSAPP_ACCESS_TOKEN, PACKAGE_WITH_SENSE_PHONE_ID, EVENTIO_PHONE_ID, VERSION, VERIFY_TOKEN
 import logging
 import requests
 import os
@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 @bp.route('/')
 def index():
     return render_template('index.html', phone_id=PACKAGE_WITH_SENSE_PHONE_ID)
+
+@bp.route('/eventio')
+def eventio():
+    return render_template('eventio.html', phone_id=EVENTIO_PHONE_ID)
 
 @bp.route('/api/chats', methods=['GET'])
 def get_chats():

@@ -3,1161 +3,331 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eventio WhatsApp Business Portal</title>
-    <!-- Tailwind CSS CDN -->
+    <title>Eventio</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Font: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Font Awesome for icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-    <!-- Emoji Picker -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-picker-element@1.12.2/index.css">
-    <script src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1.12.2/index.js" type="module"></script>
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #f0f0f0, #e8e8e8);
-            overflow: hidden;
+        /* Custom scrollbar styling */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
         }
-        
-        /* WhatsApp Colors */
-        .whatsapp-green { background-color: #25D366; }
-        .whatsapp-green-hover { background-color: #22c55e; }
-        .whatsapp-dark { background-color: #075E54; }
-        .whatsapp-light { background-color: #DCF8C6; }
-        .whatsapp-darker { background-color: #054740; }
-        .whatsapp-bg { background-color: #f0f2f5; }
-        .message-bg { background: #e5ddd5; }
-        
-        /* Custom Scrollbars */
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { 
-            background: rgba(0,0,0,0.2); 
-            border-radius: 10px; 
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.3); }
-        
-        /* Message Bubbles */
-        .message-bubble {
-            max-width: 65%;
-            padding: 8px 12px;
-            border-radius: 7.5px;
-            margin-bottom: 2px;
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* WhatsApp-like chat bubble styles */
+        .chat-bubble {
+            max-width: 70%;
             word-wrap: break-word;
-            position: relative;
-            animation: slideIn 0.3s ease-out;
-            box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
         }
-        
-        .inbound {
-            background-color: #ffffff;
-            color: #111b21;
-            align-self: flex-start;
-            border-top-left-radius: 7.5px;
-            border-top-right-radius: 7.5px;
-            border-bottom-left-radius: 2px;
-            border-bottom-right-radius: 7.5px;
+        .chat-bubble.sent {
+            background-color: #DCF8C6;
         }
-        
-        .outbound {
-            background-color: #d9fdd3;
-            color: #111b21;
-            align-self: flex-end;
-            border-top-left-radius: 7.5px;
-            border-top-right-radius: 7.5px;
-            border-bottom-left-radius: 7.5px;
-            border-bottom-right-radius: 2px;
-        }
-        
-        .message-time {
-            font-size: 11px;
-            color: rgba(17, 27, 33, 0.6);
-            margin-top: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 4px;
-        }
-        
-        .tick-status {
-            font-size: 14px;
-            color: #667781;
-        }
-        .tick-status.read { color: #53bdeb; }
-        
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(20px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(-10px); }
-            60% { transform: translateY(-5px); }
-        }
-        
-        .contact-item {
-            transition: all 0.2s ease;
-            border-left: 3px solid transparent;
-        }
-        
-        .contact-item:hover {
-            background-color: #f5f6f6;
-        }
-        
-        .contact-item.active {
-            background-color: #e7f3ff;
-            border-left-color: #25D366;
-        }
-        
-        .unread-badge {
-            background-color: #25D366;
-            color: white;
-            font-size: 12px;
-            font-weight: 600;
-            min-width: 20px;
-            height: 20px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            animation: bounce 1s;
-        }
-        
-        .online-indicator {
-            width: 12px;
-            height: 12px;
-            background-color: #25D366;
-            border-radius: 50%;
-            border: 2px solid white;
-            position: absolute;
-            bottom: 0;
-            right: 0;
-        }
-        
-        .typing-indicator {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            color: #667781;
-            font-size: 13px;
-            padding: 8px 16px;
-        }
-        
-        .typing-dots {
-            display: flex;
-            gap: 2px;
-        }
-        
-        .typing-dot {
-            width: 4px;
-            height: 4px;
-            border-radius: 50%;
-            background-color: #667781;
-            animation: typingDots 1.4s infinite ease-in-out;
-        }
-        
-        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-        
-        @keyframes typingDots {
-            0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
-            40% { transform: scale(1); opacity: 1; }
-        }
-        
-        .search-input {
-            background: #f0f2f5;
-            border: none;
-            border-radius: 8px;
-            padding: 8px 12px 8px 40px;
-        }
-        
-        .search-input:focus {
-            outline: none;
-            background: white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .profile-picture {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667781, #8696a0);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 600;
-            font-size: 16px;
-            position: relative;
-            cursor: pointer;
-        }
-        
-        .header-gradient {
-            background: linear-gradient(135deg, #075E54, #25D366);
-        }
-        
-        .glass-effect {
-            backdrop-filter: blur(20px);
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .chat-background {
-            background-image: 
-                radial-gradient(circle at 25% 25%, rgba(37, 211, 102, 0.03) 0%, transparent 50%),
-                radial-gradient(circle at 75% 75%, rgba(7, 94, 84, 0.03) 0%, transparent 50%);
-            background-color: #efeae2;
-            background-attachment: fixed;
-        }
-        
-        /* Notification styles */
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-            padding: 16px;
-            z-index: 1000;
-            transform: translateX(400px);
-            opacity: 0;
-            transition: all 0.3s ease;
-            max-width: 320px;
-            border-left: 4px solid #25D366;
-        }
-        
-        .notification.show {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        
-        .status-indicator {
-            position: absolute;
-            bottom: -2px;
-            right: -2px;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            border: 2px solid white;
-        }
-        
-        .status-online { background-color: #25D366; }
-        .status-away { background-color: #ffb700; }
-        .status-busy { background-color: #ff4444; }
-        
-        .message-input-container {
-            background: #f0f2f5;
-            padding: 10px 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .message-input {
-            flex: 1;
-            background: white;
-            border: none;
-            border-radius: 24px;
-            padding: 12px 16px;
-            font-size: 15px;
-            resize: none;
-            max-height: 100px;
-            min-height: 20px;
-        }
-        
-        .message-input:focus {
-            outline: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .send-button, .emoji-button, .media-button {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: #25D366;
-            color: white;
-            border: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 18px;
-        }
-        
-        .send-button:hover, .emoji-button:hover, .media-button:hover {
-            background: #22c55e;
-            transform: scale(1.05);
-        }
-        
-        .send-button:disabled, .emoji-button:disabled, .media-button:disabled {
-            background: #bbb;
-            cursor: not-allowed;
-            transform: scale(1);
-        }
-
-        .emoji-picker-container {
-            position: absolute;
-            bottom: 70px;
-            left: 20px;
-            z-index: 1000;
-            display: none;
-        }
-
-        .message-media {
-            max-width: 200px;
-            border-radius: 8px;
-            margin: 8px 0;
-        }
-
-        /* Profile Modal */
-        .profile-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 2000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .profile-modal-content {
-            background: white;
-            border-radius: 12px;
-            padding: 24px;
-            max-width: 400px;
-            width: 90%;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-        }
-
-        .profile-modal-content .close {
-            position: absolute;
-            right: 16px;
-            top: 16px;
-            cursor: pointer;
-            font-size: 20px;
-            color: #667781;
-        }
-
-        .profile-modal-content .close:hover {
-            color: #111b21;
-        }
-
-        /* User Phone Number Display */
-        .user-phone {
-            font-size: 12px;
-            color: #667781;
-            margin-right: 8px;
-            padding: 4px 8px;
-            background: #f0f2f5;
-            border-radius: 12px;
+        .chat-bubble.received {
+            background-color: #FFFFFF;
         }
     </style>
 </head>
-<body class="h-screen flex">
-    <!-- Notification container -->
-    <div id="notification" class="notification">
-        <div class="flex items-start gap-3">
-            <div class="profile-picture w-10 h-10 text-sm">
-                <span id="notification-avatar">?</span>
+<body class="bg-gray-100 font-sans">
+    <div class="flex h-screen">
+        <!-- Sidebar: Chat List -->
+        <div id="chat-list" class="w-full md:w-1/3 bg-white border-r border-gray-200 flex flex-col">
+            <div class="bg-green-600 text-white p-4 flex items-center justify-between">
+                <h1 class="text-xl font-semibold">Eventio</h1>
             </div>
-            <div class="flex-1">
-                <div class="font-medium text-gray-900" id="notification-name">Contact</div>
-                <div class="text-sm text-gray-600 mt-1" id="notification-message">New message</div>
+            <div class="p-2">
+                <input type="text" id="search-input" placeholder="Search chats..." 
+                       class="w-full p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500">
             </div>
-            <button onclick="hideNotification()" class="text-gray-400 hover:text-gray-600">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    </div>
-
-    <!-- Profile Modal -->
-    <div id="profile-modal" class="profile-modal">
-        <div class="profile-modal-content relative">
-            <span class="close" onclick="hideProfileModal()">&times;</span>
-            <div class="flex items-center gap-4 mb-4">
-                <div class="profile-picture w-16 h-16 text-2xl">
-                    <span id="profile-modal-avatar">?</span>
-                </div>
-                <div>
-                    <h2 id="profile-modal-name" class="font-semibold text-xl text-gray-900">Contact Name</h2>
-                    <p id="profile-modal-number" class="text-gray-600">+1234567890</p>
-                </div>
-            </div>
-            <div class="text-sm text-gray-500">Last seen recently</div>
-        </div>
-    </div>
-
-    <!-- Audio for notifications -->
-    <audio id="notification-sound" preload="auto">
-        <source src="data:audio/wav;base64,UklGRvQDAABXQVZFZm10IBAAAAABAAABACE7AABBXwAAAgAQAGRhdGHQAwAAhoCAgICAgIiIiIiIiIiIjIyMjIyMjIyQkJCQkJCQkJSUlJSUlJSUmJiYmJiYmJiYnJycnJycnJygoKCgoKCgoKSkpKSkpKSkqKioqKioqKiEhISEhISEhISIiIiIiIiIiIyMjIyMjIyMkJCQkJCQkJCUlJSUlJSUlJiYmJiYmJiYnJycnJycnJygoKCgoKCgoKSkpKSkpKSkqKioqKioqKiEhISEhISEhISIiIiIiIiIiIyMjIyMjIyMkJCQkJCQkJCUlJSUlJSUlJiYmJiYmJiYnJycnJycnJygoKCgoKCgoKSkpKSkpKSkqKioqKioqKiEhISEhISEhISIiIiIiIiIiIyMjIyMjIyMkJCQkJCQkJCUlJSUlJSUlJiYmJiYmJiYnJycnJycnJygoKCgoKCgoKSkpKSkpKSkqKioqKioqKg=" type="audio/wav">
-    </audio>
-
-    <div class="flex w-full h-full">
-        <!-- Left Sidebar -->
-        <div class="w-80 bg-white border-r border-gray-200 flex flex-col">
-            <!-- Header -->
-            <div class="header-gradient p-4 text-white">
-                <div class="flex items-center justify-between mb-4">
-                    <h1 class="text-xl font-semibold">Eventio Chats</h1>
-                    <div class="flex gap-3">
-                        <i class="fas fa-circle-notch cursor-pointer hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-all"></i>
-                        <i class="fas fa-comment-plus cursor-pointer hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-all"></i>
-                        <i class="fas fa-ellipsis-vertical cursor-pointer hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-all"></i>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Search Bar -->
-            <div class="p-4 bg-gray-50 relative">
-                <i class="fas fa-search absolute left-7 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                <input id="search-input" type="text" placeholder="Search or start new chat" class="search-input w-full">
-            </div>
-
-            <!-- Contacts List -->
-            <div id="contacts-list" class="flex-1 overflow-y-auto custom-scrollbar">
-                <div class="flex items-center justify-center h-32 text-gray-500">
-                    <div class="text-center">
-                        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                        <div>Loading conversations...</div>
-                    </div>
-                </div>
+            <div id="chats-container" class="flex-1 overflow-y-auto custom-scrollbar">
+                <!-- Chats will be dynamically loaded here -->
             </div>
         </div>
 
-        <!-- Main Chat Area -->
-        <div class="flex-1 flex flex-col">
-            <!-- Chat Header -->
-            <div class="bg-gray-50 border-b border-gray-200 p-4">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div id="chat-avatar" class="profile-picture" onclick="showProfileModal()">
-                            <span>?</span>
-                            <div id="status-indicator" class="status-indicator status-online hidden"></div>
-                        </div>
-                        <div>
-                            <h2 id="conversation-title" class="font-semibold text-gray-900">Select a chat</h2>
-                            <div id="chat-status" class="text-sm text-gray-500">Choose a conversation to start messaging</div>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-4 text-gray-600">
-                        <span id="user-phone" class="user-phone"></span>
-                        <i class="fas fa-search cursor-pointer hover:text-gray-900 p-2"></i>
-                        <i class="fas fa-ellipsis-vertical cursor-pointer hover:text-gray-900 p-2"></i>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Messages Area -->
-            <div id="messages" class="flex-1 chat-background overflow-y-auto custom-scrollbar p-4">
-                <div class="flex items-center justify-center h-full text-gray-500">
-                    <div class="text-center">
-                        <i class="fab fa-whatsapp text-8xl text-green-100 mb-4"></i>
-                        <h3 class="text-xl font-medium mb-2">Keep your phone connected</h3>
-                        <p class="text-sm max-w-sm">WhatsApp connects to your phone to sync messages. To reduce data usage, connect your phone to Wi-Fi.</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Typing Indicator -->
-            <div id="typing-indicator" class="typing-indicator hidden">
-                <div class="profile-picture w-6 h-6 text-xs">
-                    <span id="typing-avatar">?</span>
-                </div>
-                <span id="typing-name">Contact</span> is typing
-                <div class="typing-dots">
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                </div>
-            </div>
-
-            <!-- Message Input -->
-            <div class="message-input-container relative">
-                <div class="emoji-picker-container">
-                    <emoji-picker></emoji-picker>
-                </div>
-                <button id="emoji-button" class="emoji-button">
-                    <i class="fas fa-smile"></i>
+        <!-- Chat Area -->
+        <div id="chat-area" class="w-full md:w-2/3 flex flex-col bg-gray-200 hidden md:flex">
+            <div id="chat-header" class="bg-green-600 text-white p-4 flex items-center">
+                <button id="back-to-chats" class="md:hidden mr-4">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
                 </button>
-                <input type="file" id="image-input" accept="image/*" style="display: none;">
-                <button id="media-button" class="media-button" title="Send image">
-                    <i class="fas fa-image"></i>
-                </button>
-                <textarea id="message-input" placeholder="Type a message" class="message-input" rows="1" disabled></textarea>
-                <button id="send-button" class="send-button" disabled>
-                    <i class="fas fa-paper-plane"></i>
-                </button>
+                <div id="chat-contact-name" class="text-lg font-semibold"></div>
+            </div>
+            <div id="messages-container" class="flex-1 p-4 overflow-y-auto custom-scrollbar bg-[url('/static/whatsapp-bg.png')] bg-repeat">
+                <!-- Messages will be dynamically loaded here -->
+            </div>
+            <div class="bg-white p-4 border-t border-gray-200">
+                <form id="message-form" class="flex items-center">
+                    <input type="text" id="message-input" placeholder="Type a message..." 
+                           class="flex-1 p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <input type="file" id="image-input" accept="image/*" class="hidden">
+                    <button type="button" id="attach-image" class="ml-2 p-2 text-gray-600 hover:text-green-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 002.828 2.828l6.586-6.586a4 4 0 00-5.656-5.656l-6.586 6.586a6 6 0 008.485 8.485l6.586-6.586" />
+                        </svg>
+                    </button>
+                    <button type="submit" class="ml-2 p-2 text-green-600 hover:text-green-800">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                        </svg>
+                    </button>
+                </form>
             </div>
         </div>
     </div>
 
     <script>
+        const phoneId = "{{ phone_id }}"; // Populated from Flask template
         let currentWaId = null;
         let currentContactName = null;
-        const currentPhoneId = '{{ phone_id }}'; // Set directly from Flask template
-        let lastMessageCounts = {};
-        let lastMessageTimestamps = {};
+        let lastChatData = null; // Store last fetched chat data for comparison
+        let lastMessageData = null; // Store last fetched message data for comparison
 
-        // DOM Elements
-        const searchInput = document.getElementById('search-input');
-        const contactsList = document.getElementById('contacts-list');
-        const messagesDiv = document.getElementById('messages');
-        const conversationTitle = document.getElementById('conversation-title');
-        const chatStatus = document.getElementById('chat-status');
-        const chatAvatar = document.getElementById('chat-avatar');
-        const statusIndicator = document.getElementById('status-indicator');
-        const messageInput = document.getElementById('message-input');
-        const sendButton = document.getElementById('send-button');
-        const emojiButton = document.getElementById('emoji-button');
-        const mediaButton = document.getElementById('media-button');
-        const imageInput = document.getElementById('image-input');
-        const typingIndicator = document.getElementById('typing-indicator');
-        const notificationSound = document.getElementById('notification-sound');
-        const emojiPicker = document.querySelector('emoji-picker');
-        const profileModal = document.getElementById('profile-modal');
-        const userPhoneDisplay = document.getElementById('user-phone');
-
-        // Profile Modal functions
-        function showProfileModal() {
-            if (!currentWaId || !currentContactName) return;
-            document.getElementById('profile-modal-name').textContent = currentContactName || 'Unknown Contact';
-            document.getElementById('profile-modal-number').textContent = formatPhoneNumber(currentWaId);
-            document.getElementById('profile-modal-avatar').textContent = currentContactName ? currentContactName.charAt(0).toUpperCase() : '?';
-            profileModal.style.display = 'flex';
+        // Check if user is scrolled to the bottom of the messages container
+        function isScrolledToBottom(element) {
+            return element.scrollHeight - element.scrollTop <= element.clientHeight + 10; // Allow 10px tolerance
         }
 
-        function hideProfileModal() {
-            profileModal.style.display = 'none';
-        }
-
-        function formatPhoneNumber(waId) {
-            return '+' + waId.replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3');
-        }
-
-        // Notification functions
-        function showNotification(name, message, avatar) {
-            const notification = document.getElementById('notification');
-            document.getElementById('notification-name').textContent = name;
-            document.getElementById('notification-message').textContent = message;
-            document.getElementById('notification-avatar').textContent = avatar;
-            
-            notification.classList.add('show');
-            setTimeout(hideNotification, 4000);
-        }
-
-        function hideNotification() {
-            document.getElementById('notification').classList.remove('show');
-        }
-
-        function playNotificationSound() {
+        // Fetch chats
+        async function fetchChats() {
             try {
-                notificationSound.currentTime = 0;
-                notificationSound.play().catch(e => console.log('Sound play failed:', e));
-            } catch (e) {
-                console.log('Sound not available:', e);
-            }
-        }
-
-        // Emoji Picker
-        emojiPicker.addEventListener('emoji-click', event => {
-            messageInput.value += event.detail.unicode;
-            messageInput.focus();
-            emojiPicker.parentElement.style.display = 'none';
-        });
-
-        emojiButton.addEventListener('click', () => {
-            const pickerContainer = emojiPicker.parentElement;
-            pickerContainer.style.display = pickerContainer.style.display === 'none' ? 'block' : 'none';
-        });
-
-        // Media handling
-        mediaButton.addEventListener('click', () => {
-            if (!currentWaId || !currentPhoneId) {
-                showNotification('Error', 'Please select a chat first', '?');
-                return;
-            }
-            imageInput.click();
-        });
-
-        async function handleImageUpload(file) {
-            if (!currentWaId || !currentPhoneId || !file) return;
-            
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                const tempMessage = {
-                    body: '📷 Image',
-                    image_url: event.target.result,
-                    direction: 'outbound',
-                    timestamp: new Date().toISOString(),
-                    status: 'sending',
-                    type: 'image'
-                };
-                appendMessageToChat(tempMessage);
-
-                try {
-                    const formData = new FormData();
-                    formData.append('image', file);
-                    formData.append('wa_id', currentWaId);
-                    formData.append('phone_id', currentPhoneId);
-                    formData.append('caption', '');
-
-                    messageInput.disabled = true;
-                    sendButton.disabled = true;
-                    emojiButton.disabled = true;
-                    mediaButton.disabled = true;
-                    sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
-                    const response = await fetch('/api/send-image', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    const responseData = await response.json();
-                    if (!response.ok) {
-                        throw new Error(responseData.message || `Server error: ${response.status}`);
+                const response = await fetch(`/api/chats?phone_id=${phoneId}`);
+                const data = await response.json();
+                if (response.ok) {
+                    // Sort chats by last_message_timestamp in descending order
+                    data.chats.sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp));
+                    // Only update if data has changed
+                    if (JSON.stringify(data.chats) !== JSON.stringify(lastChatData)) {
+                        displayChats(data.chats);
+                        lastChatData = data.chats;
                     }
-
-                    updateContactPreview(currentWaId, '[Image]');
-                    lastMessageTimestamps[currentWaId] = responseData.timestamp;
-                    await loadMessages(currentWaId, currentContactName, currentPhoneId);
-                } catch (error) {
-                    console.error('Error sending image:', error);
-                    showNotification('Error', `Failed to send image: ${error.message}`, '?');
-                    const tempMsg = messagesDiv.querySelector(`[data-message-id="${tempMessage.timestamp}"]`);
-                    if (tempMsg) tempMsg.remove();
-                } finally {
-                    messageInput.disabled = false;
-                    sendButton.disabled = false;
-                    emojiButton.disabled = false;
-                    mediaButton.disabled = false;
-                    sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
-                    imageInput.value = '';
+                } else {
+                    console.error('Error fetching chats:', data.message);
                 }
-            };
-            reader.readAsDataURL(file);
-        }
-
-        imageInput.addEventListener('change', (e) => {
-            handleImageUpload(e.target.files[0]);
-        });
-
-        // Auto-resize textarea
-        messageInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = Math.min(this.scrollHeight, 100) + 'px';
-        });
-
-        // Search functionality
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const contacts = contactsList.querySelectorAll('.contact-item');
-            contacts.forEach(contact => {
-                const name = contact.querySelector('.contact-name')?.textContent.toLowerCase() || '';
-                const lastMessage = contact.querySelector('.last-message')?.textContent.toLowerCase() || '';
-                contact.style.display = name.includes(searchTerm) || lastMessage.includes(searchTerm) ? 'flex' : 'none';
-            });
-        });
-
-        function renderTicks(status) {
-            if (status === 'sent') return '<i class="fas fa-check tick-status"></i>';
-            if (status === 'delivered') return '<i class="fas fa-check-double tick-status"></i>';
-            if (status === 'read') return '<i class="fas fa-check-double tick-status read"></i>';
-            if (status === 'sending') return '<i class="fas fa-clock tick-status"></i>';
-            return '';
-        }
-
-        function appendMessageToChat(msg) {
-            const isNewMessage = !messagesDiv.querySelector(`[data-message-id="${msg.id || msg.timestamp}"]`);
-            if (messagesDiv.querySelector('.h-full')) messagesDiv.innerHTML = '';
-
-            const msgDiv = document.createElement('div');
-            msgDiv.className = `flex ${msg.direction === 'inbound' ? 'justify-start' : 'justify-end'} mb-1`;
-            msgDiv.setAttribute('data-message-id', msg.id || msg.timestamp);
-            
-            const avatar = msg.direction === 'inbound' ? (currentContactName ? currentContactName.charAt(0).toUpperCase() : '?') : '';
-            let content = '';
-            if (msg.image_url) {
-                content = `<img src="${msg.image_url}" class="message-media" alt="${msg.direction === 'inbound' ? 'Received' : 'Sent'} image">`;
-                if (msg.body && msg.body.startsWith('📷 Image')) {
-                    const caption = msg.body.replace('📷 Image: ', '').trim();
-                    if (caption) {
-                        content += `<p class="text-sm whitespace-pre-wrap">${caption}</p>`;
-                    }
-                }
-            } else {
-                content = `<p class="text-sm whitespace-pre-wrap">${msg.body}</p>`;
-            }
-
-            msgDiv.innerHTML = `
-                <div class="message-bubble ${msg.direction === 'inbound' ? 'inbound' : 'outbound'}">
-                    ${content}
-                    <div class="message-time">
-                        <span>${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        ${msg.direction === 'outbound' ? renderTicks(msg.status) : ''}
-                    </div>
-                </div>
-            `;
-            
-            const wasAtBottom = messagesDiv.scrollTop + messagesDiv.clientHeight >= messagesDiv.scrollHeight;
-            messagesDiv.appendChild(msgDiv);
-            if (wasAtBottom) messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-            if (isNewMessage && msg.direction === 'inbound' && currentWaId !== msg.wa_id) {
-                playNotificationSound();
-                showNotification(
-                    currentContactName || 'Unknown Contact', 
-                    msg.image_url ? '[Image]' : (msg.body.length > 50 ? msg.body.substring(0, 50) + '...' : msg.body),
-                    avatar
-                );
+            } catch (error) {
+                console.error('Error fetching chats:', error);
             }
         }
 
-        async function loadMessages(waId, name, phoneId) {
-            if (!phoneId) return;
-            
-            currentWaId = waId;
-            currentContactName = name;
-            
-            conversationTitle.textContent = name || 'Unknown Contact';
-            chatStatus.textContent = 'last seen recently';
-            chatAvatar.querySelector('span').textContent = name ? name.charAt(0).toUpperCase() : '?';
-            statusIndicator.classList.remove('hidden');
-            userPhoneDisplay.textContent = formatPhoneNumber(waId);
-            
-            try {
-                messagesDiv.innerHTML = `
-                    <div class="flex items-center justify-center h-full text-gray-500">
-                        <div class="text-center">
-                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                            <p>Loading messages...</p>
+        // Display chats in the sidebar
+        function displayChats(chats) {
+            const chatsContainer = document.getElementById('chats-container');
+            chatsContainer.innerHTML = '';
+            chats.forEach(chat => {
+                const lastMessageTime = chat.last_message_timestamp 
+                    ? new Date(chat.last_message_timestamp).toLocaleString('en-US', { 
+                        hour: 'numeric', minute: 'numeric', hour12: true 
+                      }) 
+                    : 'No messages';
+                const unreadCount = chat.unread_count || 0;
+                const lastBody = chat.last_body ? chat.last_body.substring(0, 50) + (chat.last_body.length > 50 ? '...' : '') : 'No messages';
+                const nameClass = unreadCount > 0 ? 'font-bold text-black' : 'font-semibold text-gray-800';
+                const previewClass = unreadCount > 0 ? 'text-sm text-black font-medium truncate' : 'text-sm text-gray-600 truncate';
+                const chatElement = document.createElement('div');
+                chatElement.className = 'p-3 border-b border-gray-200 hover:bg-gray-100 cursor-pointer';
+                chatElement.innerHTML = `
+                    <div class="flex items-start">
+                        <div class="w-12 h-12 bg-gray-300 rounded-full mr-3 flex-shrink-0"></div>
+                        <div class="flex-1">
+                            <div class="flex justify-between items-baseline">
+                                <div class="${nameClass}">${chat.name}</div>
+                                <div class="text-sm text-gray-500 ml-2">${lastMessageTime}</div>
+                            </div>
+                            <div class="${previewClass}">${lastBody}</div>
+                            <div class="text-sm text-gray-500">${chat.wa_id}</div>
                         </div>
+                        ${unreadCount > 0 ? `<div class="bg-green-500 text-white text-xs px-2 py-1 rounded-full ml-2 mt-1">${unreadCount}</div>` : ''}
                     </div>
                 `;
+                chatElement.addEventListener('click', () => loadMessages(chat.wa_id, chat.name));
+                chatsContainer.appendChild(chatElement);
+            });
+        }
+
+        // Fetch messages for a specific chat
+        async function loadMessages(waId, contactName, isPolling = false) {
+            currentWaId = waId;
+            currentContactName = contactName;
+            document.getElementById('chat-contact-name').textContent = contactName;
+            document.getElementById('chat-area').classList.remove('hidden');
+            document.getElementById('chat-list').classList.add('md:w-1/3', 'w-full', 'hidden', 'md:flex');
+
+            try {
+                const response = await fetch(`/api/chats/${waId}?phone_id=${phoneId}`);
+                const data = await response.json();
+                if (response.ok) {
+                    // Only update messages if data has changed or not polling
+                    if (JSON.stringify(data.messages) !== JSON.stringify(lastMessageData) || !isPolling) {
+                        const messagesContainer = document.getElementById('messages-container');
+                        const wasScrolledToBottom = isScrolledToBottom(messagesContainer);
+                        displayMessages(data.messages);
+                        lastMessageData = data.messages;
+                        // Scroll to bottom only if user was already at the bottom or it's the initial load
+                        if (wasScrolledToBottom || !isPolling) {
+                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        }
+                    }
+                    if (!isPolling) {
+                        await markMessagesAsRead(waId);
+                        fetchChats(); // Refresh chat list after marking read
+                    }
+                } else {
+                    console.error('Error fetching messages:', data.message);
+                }
+            } catch (error) {
+                console.error('Error fetching messages:', error);
+            }
+        }
+
+        // Display messages in the chat area
+        function displayMessages(messages) {
+            const messagesContainer = document.getElementById('messages-container');
+            messagesContainer.innerHTML = '';
+            messages.forEach(msg => {
+                const messageElement = document.createElement('div');
+                const isSent = msg.direction === 'outbound';
+                messageElement.className = `chat-bubble p-3 my-2 rounded-lg ${isSent ? 'sent ml-auto' : 'received mr-auto'} shadow`;
                 
-                await fetch('/api/mark-read', {
+                let content = '';
+                if (msg.type === 'image' && msg.image_url) {
+                    content = `<img src="${msg.image_url}" alt="Image" class="max-w-full rounded-lg mb-2">`;
+                    if (msg.body) {
+                        content += `<div>${msg.body.replace('📷 Image', '').trim()}</div>`;
+                    }
+                } else {
+                    content = `<div>${msg.body}</div>`;
+                }
+                
+                const time = msg.timestamp 
+                    ? new Date(msg.timestamp).toLocaleString('en-US', { 
+                        hour: 'numeric', minute: 'numeric', hour12: true 
+                      }) 
+                    : 'Unknown time';
+                
+                messageElement.innerHTML = `
+                    <div>${content}</div>
+                    <div class="text-xs text-gray-500 mt-1 ${isSent ? 'text-right' : ''}">${time}</div>
+                `;
+                messagesContainer.appendChild(messageElement);
+            });
+        }
+
+        // Mark messages as read
+        async function markMessagesAsRead(waId) {
+            try {
+                const response = await fetch('/api/mark-read', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ wa_id: waId, phone_id: phoneId })
                 });
-                
-                const response = await fetch(`/api/chats/${waId}?phone_id=${phoneId}`);
-                if (!response.ok) throw new Error((await response.json()).message || `HTTP error! status: ${response.status}`);
-                
                 const data = await response.json();
-                const messages = data.messages || [];
-                
-                messagesDiv.innerHTML = '';
-                if (messages.length === 0) {
-                    messagesDiv.innerHTML = `
-                        <div class="flex items-center justify-center h-full text-gray-500">
-                            <div class="text-center">
-                                <i class="fab fa-whatsapp text-6xl text-green-100 mb-4"></i>
-                                <p>Start a conversation with ${name}</p>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    const fragment = document.createDocumentFragment();
-                    messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                    messages.forEach(msg => {
-                        const msgDiv = document.createElement('div');
-                        msgDiv.className = `flex ${msg.direction === 'inbound' ? 'justify-start' : 'justify-end'} mb-1`;
-                        msgDiv.setAttribute('data-message-id', msg.id || msg.timestamp);
-                        
-                        let content = '';
-                        if (msg.image_url) {
-                            content = `<img src="${msg.image_url}" class="message-media" alt="${msg.direction === 'inbound' ? 'Received' : 'Sent'} image">`;
-                            if (msg.body && msg.body.startsWith('📷 Image')) {
-                                const caption = msg.body.replace('📷 Image: ', '').trim();
-                                if (caption) {
-                                    content += `<p class="text-sm whitespace-pre-wrap">${caption}</p>`;
-                                }
-                            }
-                        } else {
-                            content = `<p class="text-sm whitespace-pre-wrap">${msg.body}</p>`;
-                        }
-                        
-                        msgDiv.innerHTML = `
-                            <div class="message-bubble ${msg.direction === 'inbound' ? 'inbound' : 'outbound'}">
-                                ${content}
-                                <div class="message-time">
-                                    <span>${new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                    ${msg.direction === 'outbound' ? renderTicks(msg.status) : ''}
-                                </div>
-                            </div>
-                        `;
-                        fragment.appendChild(msgDiv);
-                    });
-                    messagesDiv.appendChild(fragment);
-                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                    lastMessageTimestamps[waId] = messages[messages.length - 1]?.timestamp || 0;
+                if (!response.ok) {
+                    console.error('Error marking messages as read:', data.message);
                 }
-                
-                updateContactPreview(waId, messages[messages.length - 1]?.image_url ? '[Image]' : 
-                                          messages[messages.length - 1]?.body || 'No messages yet');
-                
-                messageInput.disabled = false;
-                sendButton.disabled = false;
-                emojiButton.disabled = false;
-                mediaButton.disabled = false;
-                messageInput.focus();
-                
             } catch (error) {
-                console.error('Error loading messages:', error);
-                showNotification('Error', `Failed to load messages: ${error.message}`, '?');
-                messagesDiv.innerHTML = `
-                    <div class="flex items-center justify-center h-full text-red-500">
-                        <div class="text-center">
-                            <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
-                            <p>Failed to load messages: ${error.message}</p>
-                        </div>
-                    </div>
-                `;
+                console.error('Error marking messages as read:', error);
             }
         }
 
-        function updateContactPreview(waId, lastMessage) {
-            const contactItem = contactsList.querySelector(`[data-wa-id="${waId}"]`);
-            if (contactItem) {
-                const lastMessageEl = contactItem.querySelector('.last-message');
-                const unreadBadge = contactItem.querySelector('.unread-badge');
-                const timeEl = contactItem.querySelector('.last-message-time');
-                
-                if (lastMessageEl) lastMessageEl.textContent = lastMessage.length > 50 ? lastMessage.substring(0, 50) + '...' : lastMessage;
-                if (unreadBadge) unreadBadge.remove();
-                if (timeEl) {
-                    timeEl.textContent = new Date().toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
+        // Send text message
+        document.getElementById('message-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value.trim();
+            if (message && currentWaId && currentContactName) {
+                try {
+                    const response = await fetch('/api/respond', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ wa_id: currentWaId, message, phone_id: phoneId, name: currentContactName })
                     });
-                }
-                contactsList.prepend(contactItem);
-            }
-        }
-
-        function showTyping(show = true) {
-            if (show && currentContactName) {
-                document.getElementById('typing-name').textContent = currentContactName;
-                document.getElementById('typing-avatar').textContent = currentContactName.charAt(0).toUpperCase();
-                typingIndicator.classList.remove('hidden');
-                chatStatus.textContent = 'typing...';
-            } else {
-                typingIndicator.classList.add('hidden');
-                chatStatus.textContent = 'last seen recently';
-            }
-        }
-
-        async function sendMessage() {
-            if (!currentWaId || !currentPhoneId) return;
-            const messageBody = messageInput.value.trim();
-            if (!messageBody) return;
-            
-            const tempMessage = {
-                body: messageBody,
-                direction: 'outbound',
-                timestamp: new Date().toISOString(),
-                status: 'sending',
-                type: 'text'
-            };
-            appendMessageToChat(tempMessage);
-
-            messageInput.value = '';
-            messageInput.style.height = 'auto';
-            messageInput.disabled = true;
-            sendButton.disabled = true;
-            emojiButton.disabled = true;
-            mediaButton.disabled = true;
-            sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
-            try {
-                const response = await fetch('/api/respond', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        wa_id: currentWaId, 
-                        message: messageBody, 
-                        phone_id: currentPhoneId 
-                    })
-                });
-                
-                const responseData = await response.json();
-                if (!response.ok) throw new Error(responseData.message || `Server error: ${response.status}`);
-                
-                updateContactPreview(currentWaId, messageBody);
-                lastMessageTimestamps[currentWaId] = responseData.timestamp;
-                
-                setTimeout(() => {
-                    showTyping(true);
-                    setTimeout(() => {
-                        showTyping(false);
-                        loadMessages(currentWaId, currentContactName, currentPhoneId);
-                    }, 2000);
-                }, 1000);
-                
-            } catch (error) {
-                console.error('Error sending message:', error);
-                showNotification('Error', `Failed to send message: ${error.message}`, '?');
-                const tempMsg = messagesDiv.querySelector(`[data-message-id="${tempMessage.timestamp}"]`);
-                if (tempMsg) tempMsg.remove();
-            } finally {
-                messageInput.disabled = false;
-                sendButton.disabled = false;
-                emojiButton.disabled = false;
-                mediaButton.disabled = false;
-                sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
-                messageInput.focus();
-            }
-        }
-
-        async function loadContacts() {
-            if (!currentPhoneId) return;
-            
-            try {
-                contactsList.innerHTML = `
-                    <div class="flex items-center justify-center h-32 text-gray-500">
-                        <div class="text-center">
-                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                            <p>Loading conversations...</p>
-                        </div>
-                    </div>
-                `;
-                
-                const response = await fetch(`/api/chats?phone_id=${currentPhoneId}`);
-                if (!response.ok) throw new Error((await response.json()).message || `HTTP error! status: ${response.status}`);
-                
-                const data = await response.json();
-                const existingContacts = new Set(
-                    Array.from(contactsList.querySelectorAll('.contact-item'))
-                        .map(item => item.getAttribute('data-wa-id'))
-                );
-                
-                contactsList.innerHTML = '';
-                if (!data.chats || data.chats.length === 0) {
-                    contactsList.innerHTML = `
-                        <div class="flex items-center justify-center h-32 text-gray-500">
-                            <div class="text-center">
-                                <i class="fab fa-whatsapp text-4xl text-green-100 mb-2"></i>
-                                <p>No conversations yet</p>
-                            </div>
-                        </div>
-                    `;
-                    return;
-                }
-
-                data.chats.sort((a, b) => {
-                    const timeA = a.last_message_timestamp ? new Date(a.last_message_timestamp) : new Date(0);
-                    const timeB = b.last_message_timestamp ? new Date(b.last_message_timestamp) : new Date(0);
-                    return timeB - timeA;
-                });
-
-                const fragment = document.createDocumentFragment();
-                for (const contact of data.chats) {
-                    if (existingContacts.has(contact.wa_id)) continue;
-                    
-                    const messagesResponse = await fetch(`/api/chats/${contact.wa_id}?phone_id=${currentPhoneId}`);
-                    if (!messagesResponse.ok) continue;
-                    const messagesData = await messagesResponse.json();
-                    const messages = messagesData.messages || [];
-                    
-                    const unreadCount = messages.filter(msg => msg.direction === 'inbound' && !msg.read).length;
-                    const lastMessage = messages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
-                    const lastMessageText = lastMessage ? (lastMessage.image_url ? '[Image]' : (lastMessage.body.length > 50 ? lastMessage.body.substring(0, 50) + '...' : lastMessage.body)) : 'No messages yet';
-                    const lastMessageTime = lastMessage ? new Date(lastMessage.timestamp).toLocaleTimeString([], { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                    }) : '';
-                    
-                    lastMessageCounts[contact.wa_id] = messages.length;
-                    lastMessageTimestamps[contact.wa_id] = lastMessage ? lastMessage.timestamp : 0;
-                    
-                    const isOnline = Math.random() > 0.7;
-                    const contactItem = document.createElement('div');
-                    contactItem.className = `contact-item p-4 cursor-pointer flex items-center gap-3 ${currentWaId === contact.wa_id ? 'active' : ''}`;
-                    contactItem.setAttribute('data-wa-id', contact.wa_id);
-                    
-                    const avatar = contact.name ? contact.name.charAt(0).toUpperCase() : '?';
-                    contactItem.innerHTML = `
-                        <div class="relative">
-                            <div class="profile-picture">
-                                <span>${avatar}</span>
-                                ${isOnline ? '<div class="status-indicator status-online"></div>' : ''}
-                            </div>
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center justify-between mb-1">
-                                <h3 class="contact-name font-medium text-gray-900 truncate">${contact.name || 'Unknown Contact'}</h3>
-                                <div class="flex items-center gap-2">
-                                    <span class="last-message-time text-xs text-gray-500">${lastMessageTime}</span>
-                                    ${unreadCount > 0 && currentWaId !== contact.wa_id ? `<div class="unread-badge">${unreadCount}</div>` : ''}
-                                </div>
-                            </div>
-                            <p class="last-message text-sm text-gray-600 truncate">${lastMessageText}</p>
-                        </div>
-                    `;
-                    
-                    contactItem.addEventListener('click', async () => {
-                        document.querySelectorAll('.contact-item').forEach(item => item.classList.remove('active'));
-                        contactItem.classList.add('active');
-                        const badge = contactItem.querySelector('.unread-badge');
-                        if (badge) badge.remove();
-                        const timeEl = contactItem.querySelector('.last-message-time');
-                        if (timeEl && lastMessage) {
-                            timeEl.textContent = new Date().toLocaleTimeString([], { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                            });
-                        }
-                        await loadMessages(contact.wa_id, contact.name || 'Unknown Contact', currentPhoneId);
-                    });
-                    
-                    fragment.appendChild(contactItem);
-                }
-                contactsList.appendChild(fragment);
-            } catch (error) {
-                console.error('Error loading contacts:', error);
-                showNotification('Error', `Failed to load contacts: ${error.message}`, '?');
-                contactsList.innerHTML = `
-                    <div class="flex items-center justify-center h-32 text-red-500">
-                        <div class="text-center">
-                            <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
-                            <p>Failed to load contacts: ${error.message}</p>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-
-        async function checkNewMessages() {
-            if (!currentPhoneId) return;
-            try {
-                const response = await fetch(`/api/chats?phone_id=${currentPhoneId}`);
-                if (!response.ok) throw new Error((await response.json()).message || `HTTP error! status: ${response.status}`);
-                const data = await response.json();
-                const chats = data.chats || [];
-                
-                for (const contact of chats) {
-                    const messagesResponse = await fetch(`/api/chats/${contact.wa_id}?phone_id=${currentPhoneId}`);
-                    if (!messagesResponse.ok) continue;
-                    const messagesData = await messagesResponse.json();
-                    const messages = messagesData.messages || [];
-                    const messageCount = messages.length;
-                    
-                    if (lastMessageCounts[contact.wa_id] !== undefined && messageCount > lastMessageCounts[contact.wa_id]) {
-                        const newMessages = messages.filter(msg => new Date(msg.timestamp) > new Date(lastMessageTimestamps[contact.wa_id]));
-                        newMessages.forEach(msg => {
-                            if (msg.direction === 'inbound' && currentWaId !== contact.wa_id) {
-                                playNotificationSound();
-                                showNotification(
-                                    contact.name || 'Unknown Contact',
-                                    msg.image_url ? '[Image]' : (msg.body.length > 50 ? msg.body.substring(0, 50) + '...' : msg.body),
-                                    contact.name ? contact.name.charAt(0).toUpperCase() : '?'
-                                );
-                            }
-                            if (currentWaId === contact.wa_id) appendMessageToChat(msg);
-                        });
-                        lastMessageCounts[contact.wa_id] = messageCount;
-                        lastMessageTimestamps[contact.wa_id] = messages[messages.length - 1]?.timestamp || 0;
-                        updateContactPreview(
-                            contact.wa_id,
-                            messages[messages.length - 1]?.image_url ? '[Image]' :
-                            (messages[messages.length - 1]?.body.length > 50 ? messages[messages.length - 1]?.body.substring(0, 50) + '...' : messages[messages.length - 1]?.body) || 'No messages yet'
-                        );
+                    const data = await response.json();
+                    if (response.ok) {
+                        messageInput.value = '';
+                        loadMessages(currentWaId, currentContactName);
+                        fetchChats(); // Refresh chat list to move recent chat up
+                    } else {
+                        console.error('Error sending message:', data.message);
                     }
+                } catch (error) {
+                    console.error('Error sending message:', error);
                 }
-            } catch (error) {
-                console.error('Error checking new messages:', error);
-                showNotification('Error', `Failed to check new messages: ${error.message}`, '?');
-            }
-        }
-
-        // Event Listeners
-        sendButton.addEventListener('click', sendMessage);
-        
-        messageInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
             }
         });
+
+        // Send image message
+        document.getElementById('attach-image').addEventListener('click', () => {
+            document.getElementById('image-input').click();
+        });
+
+        document.getElementById('image-input').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file && currentWaId && currentContactName) {
+                const formData = new FormData();
+                formData.append('wa_id', currentWaId);
+                formData.append('phone_id', phoneId);
+                formData.append('image', file);
+                formData.append('caption', document.getElementById('message-input').value.trim());
+                formData.append('name', currentContactName);
+
+                try {
+                    const response = await fetch('/api/send-image', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        document.getElementById('message-input').value = '';
+                        document.getElementById('image-input').value = '';
+                        loadMessages(currentWaId, currentContactName);
+                        fetchChats(); // Refresh chat list to move recent chat up
+                    } else {
+                        console.error('Error sending image:', data.message);
+                    }
+                } catch (error) {
+                    console.error('Error sending image:', error);
+                }
+            }
+        });
+
+        // Back to chats on mobile
+        document.getElementById('back-to-chats').addEventListener('click', () => {
+            document.getElementById('chat-area').classList.add('hidden');
+            document.getElementById('chat-list').classList.remove('md:w-1/3', 'hidden');
+            document.getElementById('chat-list').classList.add('w-full');
+            fetchChats(); // Refresh on back
+        });
+
+        // Search functionality
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const chatElements = document.getElementById('chats-container').children;
+            Array.from(chatElements).forEach(chat => {
+                const name = chat.querySelector('[class*="font-bold"], [class*="font-semibold"]').textContent.toLowerCase();
+                const waId = chat.querySelector('.text-sm.text-gray-500').textContent.toLowerCase();
+                chat.style.display = name.includes(searchTerm) || waId.includes(searchTerm) ? '' : 'none';
+            });
+        });
+
+        // Polling for new chats and messages
+        function startPolling() {
+            setInterval(async () => {
+                await fetchChats(); // Refresh chat list
+                if (currentWaId && currentContactName) {
+                    await loadMessages(currentWaId, currentContactName, true); // Refresh messages for active chat
+                }
+            }, 5000); // Poll every 5 seconds
+        }
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            loadContacts();
-            setInterval(checkNewMessages, 5000);
-            setInterval(() => {
-                const indicators = document.querySelectorAll('.status-indicator');
-                indicators.forEach(indicator => {
-                    if (Math.random() > 0.8) {
-                        const classes = ['status-online', 'status-away', 'status-busy'];
-                        indicator.className = `status-indicator ${classes[Math.floor(Math.random() * classes.length)]}`;
-                    }
-                });
-            }, 15000);
-        });
-
-        // Handle notification clicks
-        document.getElementById('notification').addEventListener('click', hideNotification);
-
-        // Close notification and modal on escape key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                hideNotification();
-                hideProfileModal();
-                emojiPicker.parentElement.style.display = 'none';
-            }
-        });
-
-        // Prevent form submission on Enter in search
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') e.preventDefault();
-        });
-
-        // Add ripple effect to buttons
-        function createRipple(event) {
-            const button = event.currentTarget;
-            const circle = document.createElement('span');
-            const diameter = Math.max(button.clientWidth, button.clientHeight);
-            const radius = diameter / 2;
-
-            circle.style.width = circle.style.height = `${diameter}px`;
-            circle.style.left = `${event.clientX - button.offsetLeft - radius}px`;
-            circle.style.top = `${event.clientY - button.offsetTop - radius}px`;
-            circle.classList.add('ripple');
-
-            const ripple = button.getElementsByClassName('ripple')[0];
-            if (ripple) ripple.remove();
-            button.appendChild(circle);
-        }
-
-        const style = document.createElement('style');
-        style.textContent = `
-            .ripple {
-                position: absolute;
-                border-radius: 50%;
-                background-color: rgba(255, 255, 255, 0.6);
-                transform: scale(0);
-                animation: ripple-animation 0.6s linear;
-                pointer-events: none;
-            }
-            @keyframes ripple-animation {
-                to {
-                    transform: scale(4);
-                    opacity: 0;
-                }
-            }
-        `;
-        document.head.appendChild(style);
-
-        sendButton.addEventListener('click', createRipple);
-        emojiButton.addEventListener('click', createRipple);
-        mediaButton.addEventListener('click', createRipple);
+        fetchChats();
+        startPolling();
     </script>
 </body>
 </html>

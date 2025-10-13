@@ -86,6 +86,13 @@
         const phoneId = "{{ phone_id }}"; // Populated from Flask template
         let currentWaId = null;
         let currentContactName = null;
+        let lastChatData = null; // Store last fetched chat data for comparison
+        let lastMessageData = null; // Store last fetched message data for comparison
+
+        // Check if user is scrolled to the bottom of the messages container
+        function isScrolledToBottom(element) {
+            return element.scrollHeight - element.scrollTop <= element.clientHeight + 10; // Allow 10px tolerance
+        }
 
         // Fetch chats
         async function fetchChats() {
@@ -95,7 +102,11 @@
                 if (response.ok) {
                     // Sort chats by last_message_timestamp in descending order
                     data.chats.sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp));
-                    displayChats(data.chats);
+                    // Only update if data has changed
+                    if (JSON.stringify(data.chats) !== JSON.stringify(lastChatData)) {
+                        displayChats(data.chats);
+                        lastChatData = data.chats;
+                    }
                 } else {
                     console.error('Error fetching chats:', data.message);
                 }
@@ -140,7 +151,7 @@
         }
 
         // Fetch messages for a specific chat
-        async function loadMessages(waId, contactName) {
+        async function loadMessages(waId, contactName, isPolling = false) {
             currentWaId = waId;
             currentContactName = contactName;
             document.getElementById('chat-contact-name').textContent = contactName;
@@ -151,9 +162,21 @@
                 const response = await fetch(`/api/chats/${waId}?phone_id=${phoneId}`);
                 const data = await response.json();
                 if (response.ok) {
-                    displayMessages(data.messages);
-                    await markMessagesAsRead(waId);
-                    fetchChats(); // Refresh chat list after marking read
+                    // Only update messages if data has changed or not polling
+                    if (JSON.stringify(data.messages) !== JSON.stringify(lastMessageData) || !isPolling) {
+                        const messagesContainer = document.getElementById('messages-container');
+                        const wasScrolledToBottom = isScrolledToBottom(messagesContainer);
+                        displayMessages(data.messages);
+                        lastMessageData = data.messages;
+                        // Scroll to bottom only if user was already at the bottom or it's the initial load
+                        if (wasScrolledToBottom || !isPolling) {
+                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                        }
+                    }
+                    if (!isPolling) {
+                        await markMessagesAsRead(waId);
+                        fetchChats(); // Refresh chat list after marking read
+                    }
                 } else {
                     console.error('Error fetching messages:', data.message);
                 }
@@ -193,7 +216,6 @@
                 `;
                 messagesContainer.appendChild(messageElement);
             });
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
         // Mark messages as read
@@ -293,8 +315,19 @@
             });
         });
 
+        // Polling for new chats and messages
+        function startPolling() {
+            setInterval(async () => {
+                await fetchChats(); // Refresh chat list
+                if (currentWaId && currentContactName) {
+                    await loadMessages(currentWaId, currentContactName, true); // Refresh messages for active chat
+                }
+            }, 5000); // Poll every 5 seconds
+        }
+
         // Initialize
         fetchChats();
+        startPolling();
     </script>
 </body>
 </html>
