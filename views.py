@@ -1,11 +1,17 @@
 from flask import Blueprint, request, render_template, jsonify
-from utils.whatsapp_utils import process_whatsapp_message, send_message, send_image_message, download_whatsapp_image, get_table_name
+from utils.whatsapp_utils import (
+    process_whatsapp_message, send_message, send_image_message, 
+    download_whatsapp_image, get_table_name, get_text_message_input
+)
 from utils.db_manager import db_manager
 from config import (
     VERIFY_TOKEN, ACCOUNT1_PHONE_ID_EVENTIO, ACCOUNT1_PHONE_ID_PACKAGE, ACCOUNT2_PHONE_ID
 )
+from datetime import datetime
 import logging
 import base64
+import os
+from werkzeug.utils import secure_filename
 
 bp = Blueprint('whatsapp', __name__)
 
@@ -47,7 +53,7 @@ def eventio():
     logger.debug(f"Rendering eventio page with phone_id: {ACCOUNT1_PHONE_ID_EVENTIO}")
     return render_template('eventio.html', phone_id=ACCOUNT1_PHONE_ID_EVENTIO)
 
-@bp.route('/') # Changed from '/package_with_sense' to '/' to make it the default
+@bp.route('/')
 def package_with_sense():
     """Render Package with Sense page (now the default root page)."""
     logger.debug(f"Rendering package_with_sense page with phone_id: {ACCOUNT1_PHONE_ID_PACKAGE}")
@@ -109,3 +115,192 @@ def get_messages(phone_id):
     except Exception as e:
         logger.error(f"Error fetching messages for phone_id {phone_id}: {e}")
         return jsonify({'status': 'error', 'message': 'Failed to fetch messages'}), 500
+
+# NEW API ENDPOINTS FOR THE CHAT INTERFACE
+
+@bp.route('/api/chats', methods=['GET'])
+def get_chats():
+    """Get all chats grouped by wa_id with last message info."""
+    try:
+        phone_id = request.args.get('phone_id')
+        if not phone_id:
+            return jsonify({'status': 'error', 'message': 'Phone ID required'}), 400
+        
+        table_name = get_table_name(phone_id)
+        logger.debug(f"Fetching chats from {table_name}")
+        
+        # Use subquery to get last message per wa_id
+        query = f"""
+            WITH latest_messages AS (
+                SELECT DISTINCT ON (wa_id)
+                    wa_id,
+                    name,
+                    timestamp as last_message_timestamp,
+                    body as last_body
+                FROM {table_name}
+                ORDER BY wa_id, timestamp DESC
+            ),
+            unread_counts AS (
+                SELECT 
+                    wa_id,
+                    COUNT(*) as unread_count
+                FROM {table_name}
+                WHERE direction = 'inbound' AND read = FALSE
+                GROUP BY wa_id
+            )
+            SELECT 
+                lm.wa_id,
+                lm.name,
+                lm.last_message_timestamp,
+                lm.last_body,
+                COALESCE(uc.unread_count, 0) as unread_count
+            FROM latest_messages lm
+            LEFT JOIN unread_counts uc ON lm.wa_id = uc.wa_id
+            ORDER BY lm.last_message_timestamp DESC
+        """
+        
+        chats = db_manager.execute_query(query, fetch=True)
+        return jsonify({'status': 'success', 'chats': chats})
+    except Exception as e:
+        logger.error(f"Error fetching chats: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@bp.route('/api/chats/<wa_id>', methods=['GET'])
+def get_chat_messages(wa_id):
+    """Get all messages for a specific chat."""
+    try:
+        phone_id = request.args.get('phone_id')
+        if not phone_id:
+            return jsonify({'status': 'error', 'message': 'Phone ID required'}), 400
+        
+        table_name = get_table_name(phone_id)
+        logger.debug(f"Fetching messages for wa_id {wa_id} from {table_name}")
+        
+        query = f"""
+            SELECT * FROM {table_name}
+            WHERE wa_id = %s
+            ORDER BY timestamp ASC
+        """
+        
+        messages = db_manager.execute_query(query, (wa_id,), fetch=True)
+        return jsonify({'status': 'success', 'messages': messages})
+    except Exception as e:
+        logger.error(f"Error fetching messages for wa_id {wa_id}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@bp.route('/api/mark-read', methods=['POST'])
+def mark_read():
+    """Mark all messages from a wa_id as read."""
+    try:
+        data = request.get_json()
+        wa_id = data.get('wa_id')
+        phone_id = data.get('phone_id')
+        
+        if not wa_id or not phone_id:
+            return jsonify({'status': 'error', 'message': 'wa_id and phone_id required'}), 400
+        
+        table_name = get_table_name(phone_id)
+        logger.debug(f"Marking messages as read for wa_id {wa_id} in {table_name}")
+        
+        query = f"""
+            UPDATE {table_name}
+            SET read = TRUE
+            WHERE wa_id = %s AND direction = 'inbound' AND read = FALSE
+        """
+        
+        db_manager.execute_query(query, (wa_id,))
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        logger.error(f"Error marking messages as read: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@bp.route('/api/respond', methods=['POST'])
+def respond():
+    """Send a text message response."""
+    try:
+        data = request.get_json()
+        wa_id = data.get('wa_id')
+        message = data.get('message')
+        phone_id = data.get('phone_id')
+        name = data.get('name', 'Unknown')
+        
+        if not wa_id or not message or not phone_id:
+            return jsonify({'status': 'error', 'message': 'wa_id, message, and phone_id required'}), 400
+        
+        # Send via WhatsApp API
+        payload = get_text_message_input(wa_id, message)
+        result = send_message(payload, phone_id)
+        
+        if result:
+            # Save to database
+            table_name = get_table_name(phone_id)
+            message_data = {
+                'id': result.get('messages', [{}])[0].get('id', f"out_{datetime.now().timestamp()}"),
+                'wa_id': wa_id,
+                'name': name,
+                'type': 'text',
+                'body': message,
+                'timestamp': datetime.now(),
+                'direction': 'outbound',
+                'status': 'sent',
+                'read': True,
+                'image_url': None,
+                'image_id': None
+            }
+            db_manager.insert_message(table_name, message_data)
+            return jsonify({'status': 'success', 'result': result})
+        else:
+            return jsonify({'status': 'error', 'message': 'Failed to send message'}), 500
+    except Exception as e:
+        logger.error(f"Error responding: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@bp.route('/api/send-image', methods=['POST'])
+def send_image():
+    """Send an image message."""
+    try:
+        wa_id = request.form.get('wa_id')
+        phone_id = request.form.get('phone_id')
+        caption = request.form.get('caption', '')
+        name = request.form.get('name', 'Unknown')
+        image_file = request.files.get('image')
+        
+        if not wa_id or not phone_id or not image_file:
+            return jsonify({'status': 'error', 'message': 'wa_id, phone_id, and image required'}), 400
+        
+        # Save image temporarily
+        uploads_dir = "static/uploads"
+        os.makedirs(uploads_dir, exist_ok=True)
+        filename = secure_filename(f"{datetime.now().timestamp()}_{image_file.filename}")
+        filepath = os.path.join(uploads_dir, filename)
+        image_file.save(filepath)
+        
+        # Get full URL (you may need to adjust this based on your deployment)
+        image_url = request.url_root.rstrip('/') + f"/static/uploads/{filename}"
+        
+        # Send via WhatsApp API
+        result = send_image_message(wa_id, image_url, caption, phone_id)
+        
+        if result:
+            # Save to database
+            table_name = get_table_name(phone_id)
+            message_data = {
+                'id': result.get('messages', [{}])[0].get('id', f"out_{datetime.now().timestamp()}"),
+                'wa_id': wa_id,
+                'name': name,
+                'type': 'image',
+                'body': f"📷 Image{(' - ' + caption) if caption else ''}",
+                'timestamp': datetime.now(),
+                'direction': 'outbound',
+                'status': 'sent',
+                'read': True,
+                'image_url': f"/static/uploads/{filename}",
+                'image_id': None
+            }
+            db_manager.insert_message(table_name, message_data)
+            return jsonify({'status': 'success', 'result': result})
+        else:
+            return jsonify({'status': 'error', 'message': 'Failed to send image'}), 500
+    except Exception as e:
+        logger.error(f"Error sending image: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500

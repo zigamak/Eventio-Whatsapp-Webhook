@@ -64,29 +64,10 @@ def save_message(db_manager, message_data, phone_id):
     """
     try:
         table_name = get_table_name(phone_id)
-        query = """
-            SELECT insert_message(
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-            )
-        """
-        params = (
-            table_name,
-            message_data['id'],
-            message_data['wa_id'],
-            message_data['name'],
-            message_data['type'],
-            message_data['body'],
-            message_data['timestamp'],
-            message_data['direction'],
-            message_data['status'],
-            message_data['read'],
-            message_data.get('image_url'),
-            message_data.get('image_id')
-        )
-        db_manager.execute_query(query, params)
-        logger.info(f"Message saved to {table_name}: {message_data['id']}")
+        db_manager.insert_message(table_name, message_data)
+        logger.info(f"✅ Message saved to {table_name}: {message_data['id']}")
     except Exception as e:
-        logger.error(f"Error saving message to {table_name}: {e}")
+        logger.error(f"❌ Error saving message to {table_name}: {e}")
         raise
 
 def get_text_message_input(recipient, text):
@@ -350,16 +331,12 @@ def process_whatsapp_message(db_manager, body, phone_id):
             message_id = status.get('id')
             new_status = status.get('status')
             
-            query = """
-                SELECT update_message_status(%s, %s, %s, %s)
-            """
-            params = (
+            db_manager.update_message_status(
                 table_name,
                 message_id,
                 new_status,
                 new_status == 'read'
             )
-            db_manager.execute_query(query, params)
             logger.info(f"Updated message status. ID: {message_id}, Status: {new_status}")
             return {"status": "success", "message_id": message_id}
         

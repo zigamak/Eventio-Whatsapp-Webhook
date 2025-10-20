@@ -42,7 +42,6 @@ class DatabaseManager:
         self.retry_delay = 1  # seconds
         self.connect()
         self.create_tables_if_not_exists()
-        self.create_functions()
 
     def connect(self):
         """Establish a connection to the database with retry logic."""
@@ -286,112 +285,54 @@ class DatabaseManager:
             else:
                 logger.info(f"Table {schema}.{table_name} already exists")
 
-    def create_functions(self, schema='public'):
-        """Create required database functions if they do not exist."""
-        # First, drop existing functions to avoid conflicts
-        # We need to specify the exact argument types
-        try:
-            drop_queries = [
-                f"""DROP FUNCTION IF EXISTS {schema}.insert_message(
-                    TEXT, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TEXT, TIMESTAMPTZ, 
-                    VARCHAR, VARCHAR, BOOLEAN, TEXT, VARCHAR
-                ) CASCADE""",
-                f"""DROP FUNCTION IF EXISTS {schema}.update_message_status(
-                    TEXT, VARCHAR, VARCHAR, BOOLEAN
-                ) CASCADE"""
-            ]
-            for query in drop_queries:
-                try:
-                    self.execute_query(query)
-                    logger.info(f"Dropped existing function if it existed")
-                except Exception as drop_err:
-                    logger.debug(f"Could not drop function (may not exist): {drop_err}")
-        except Exception as e:
-            logger.warning(f"Error dropping functions (this is usually OK): {e}")
+    def insert_message(self, table_name, message_data):
+        """
+        Insert a message directly into the specified table.
+        
+        Args:
+            table_name (str): Full table name including schema (e.g., 'public.eventio_messages')
+            message_data (dict): Message data with all required fields
+        """
+        query = f"""
+            INSERT INTO {table_name} 
+            (id, wa_id, name, type, body, timestamp, direction, status, read, image_url, image_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO NOTHING
+        """
+        params = (
+            message_data['id'],
+            message_data['wa_id'],
+            message_data['name'],
+            message_data['type'],
+            message_data['body'],
+            message_data['timestamp'],
+            message_data['direction'],
+            message_data['status'],
+            message_data['read'],
+            message_data.get('image_url'),
+            message_data.get('image_id')
+        )
+        self.execute_query(query, params)
+        logger.info(f"✅ Message saved to {table_name}: {message_data['id']}")
 
-        functions = [
-            {
-                'name': 'insert_message',
-                'schema': f"""
-                    CREATE OR REPLACE FUNCTION {schema}.insert_message(
-                        p_table_name TEXT,
-                        p_id VARCHAR(255),
-                        p_wa_id VARCHAR(255),
-                        p_name VARCHAR(255),
-                        p_type VARCHAR(50),
-                        p_body TEXT,
-                        p_timestamp TIMESTAMPTZ,
-                        p_direction VARCHAR(50),
-                        p_status VARCHAR(50),
-                        p_read BOOLEAN,
-                        p_image_url TEXT,
-                        p_image_id VARCHAR(255)
-                    ) RETURNS VOID AS $$
-                    BEGIN
-                        EXECUTE format('
-                            INSERT INTO %I (id, wa_id, name, type, body, timestamp, direction, status, read, image_url, image_id)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                        ', p_table_name)
-                        USING p_id, p_wa_id, p_name, p_type, p_body, p_timestamp, p_direction, p_status, p_read, p_image_url, p_image_id;
-                    END;
-                    $$ LANGUAGE plpgsql;
-                """
-            },
-            {
-                'name': 'update_message_status',
-                'schema': f"""
-                    CREATE OR REPLACE FUNCTION {schema}.update_message_status(
-                        p_table_name TEXT,
-                        p_message_id VARCHAR(255),
-                        p_status VARCHAR(50),
-                        p_read BOOLEAN
-                    ) RETURNS VOID AS $$
-                    BEGIN
-                        EXECUTE format('
-                            UPDATE %I
-                            SET status = $1, read = $2
-                            WHERE id = $3
-                        ', p_table_name)
-                        USING p_status, p_read, p_message_id;
-                    END;
-                    $$ LANGUAGE plpgsql;
-                """
-            }
-        ]
-
-        for func in functions:
-            try:
-                query = func['schema']
-                self.execute_query(query)
-                logger.info(f"Created function {schema}.{func['name']}")
-                
-                # Grant execute permissions
-                user = self.connection_string.split('user=')[1].split(' ')[0]
-                if func['name'] == 'insert_message':
-                    grant_query = f"""
-                        GRANT EXECUTE ON FUNCTION {schema}.insert_message(
-                            TEXT, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TEXT, TIMESTAMPTZ, 
-                            VARCHAR, VARCHAR, BOOLEAN, TEXT, VARCHAR
-                        ) TO {user}
-                    """
-                else:
-                    grant_query = f"""
-                        GRANT EXECUTE ON FUNCTION {schema}.update_message_status(
-                            TEXT, VARCHAR, VARCHAR, BOOLEAN
-                        ) TO {user}
-                    """
-                self.execute_query(grant_query)
-                logger.info(f"Granted EXECUTE on {schema}.{func['name']} to user {user}")
-            except psycopg2.Error as e:
-                logger.error(f"Failed to create function {schema}.{func['name']}: {e}")
-                if 'permission denied for schema' in str(e).lower():
-                    user = self.connection_string.split('user=')[1].split(' ')[0]
-                    logger.error(
-                        f"Permission denied for schema {schema}. "
-                        "Try granting CREATE privileges with: "
-                        f"GRANT CREATE ON SCHEMA {schema} TO {user};"
-                    )
-                raise
+    def update_message_status(self, table_name, message_id, status, read):
+        """
+        Update message status directly in the specified table.
+        
+        Args:
+            table_name (str): Full table name including schema
+            message_id (str): Message ID to update
+            status (str): New status
+            read (bool): Read status
+        """
+        query = f"""
+            UPDATE {table_name}
+            SET status = %s, read = %s
+            WHERE id = %s
+        """
+        params = (status, read, message_id)
+        self.execute_query(query, params)
+        logger.info(f"✅ Updated message status in {table_name}: {message_id} -> {status}")
 
     def __del__(self):
         """Destructor to ensure database connection is closed."""
@@ -414,10 +355,10 @@ try:
     
     # Test the connection on startup
     if db_manager.test_connection():
-        logger.info("Database manager initialized successfully")
+        logger.info("✅ Database manager initialized successfully")
     else:
-        logger.error("Database manager initialization failed - connection test failed")
+        logger.error("❌ Database manager initialization failed - connection test failed")
         
 except Exception as e:
-    logger.error(f"Failed to initialize database manager: {e}")
+    logger.error(f"❌ Failed to initialize database manager: {e}")
     raise
