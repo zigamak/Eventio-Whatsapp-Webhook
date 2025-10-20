@@ -1,17 +1,28 @@
 import logging
 import os
-from datetime import datetime
 import requests
-from config import WHATSAPP_ACCESS_TOKEN, IGNITIO_TOKEN, VERSION, IGNITIO_PHONE_ID
+from datetime import datetime
+from config import (
+    ACCOUNT1_ACCESS_TOKEN, ACCOUNT1_PHONE_ID_EVENTIO, ACCOUNT1_PHONE_ID_PACKAGE,
+    ACCOUNT2_ACCESS_TOKEN, ACCOUNT2_PHONE_ID, VERSION
+)
 
-# Set up logging
+# Configure logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 # Map phone IDs to table names
 PHONE_ID_TO_TABLE = {
-    '608867502309431': 'eventio_messages',
-    '630482473482641': 'package_with_sense_messages',
-    IGNITIO_PHONE_ID: 'ignitiohub_messages'
+    ACCOUNT1_PHONE_ID_EVENTIO: 'public.eventio_messages',
+    ACCOUNT1_PHONE_ID_PACKAGE: 'public.package_with_sense_messages',
+    ACCOUNT2_PHONE_ID: 'public.ignitiohub_messages'
+}
+
+# Map phone IDs to access tokens
+PHONE_ID_TO_TOKEN = {
+    ACCOUNT1_PHONE_ID_EVENTIO: ACCOUNT1_ACCESS_TOKEN,
+    ACCOUNT1_PHONE_ID_PACKAGE: ACCOUNT1_ACCESS_TOKEN,
+    ACCOUNT2_PHONE_ID: ACCOUNT2_ACCESS_TOKEN
 }
 
 def get_table_name(phone_id):
@@ -24,7 +35,23 @@ def get_table_name(phone_id):
     Returns:
         str: Corresponding table name.
     """
-    return PHONE_ID_TO_TABLE.get(phone_id, 'eventio_messages')
+    table = PHONE_ID_TO_TABLE.get(phone_id, 'public.eventio_messages')
+    logger.debug(f"Mapping phone_id {phone_id} to table {table}")
+    return table
+
+def get_token_for_phone_id(phone_id):
+    """
+    Return the access token for a given phone_number_id.
+    
+    Args:
+        phone_id (str): Phone number ID.
+    
+    Returns:
+        str: Access token for the phone ID.
+    """
+    token = PHONE_ID_TO_TOKEN.get(phone_id, ACCOUNT1_ACCESS_TOKEN)
+    logger.debug(f"Selected token for phone_id {phone_id}")
+    return token
 
 def save_message(db_manager, message_data, phone_id):
     """
@@ -102,10 +129,8 @@ def get_image_message_input(recipient, image_url, caption=""):
             "link": image_url
         }
     }
-    
     if caption:
         payload["image"]["caption"] = caption
-    
     return payload
 
 def send_message(data, phone_id):
@@ -117,18 +142,21 @@ def send_message(data, phone_id):
         phone_id (str): Phone number ID for the API request.
     
     Returns:
-        tuple: (Response object, HTTP status code)
+        dict: Response JSON from the WhatsApp API, or None if failed.
     """
-    url = f"https://graph.facebook.com/{VERSION}/{phone_id}/messages"
-    token = IGNITIO_TOKEN if phone_id == IGNITIO_PHONE_ID else WHATSAPP_ACCESS_TOKEN
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
-    }
-    
-    response = requests.post(url, json=data, headers=headers)
-    response.raise_for_status()
-    return response, response.status_code
+    try:
+        url = f"https://graph.facebook.com/{VERSION}/{phone_id}/messages"
+        headers = {
+            "Authorization": f"Bearer {get_token_for_phone_id(phone_id)}",
+            "Content-Type": "application/json"
+        }
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        logger.info(f"Message sent successfully: {response.json()}")
+        return response.json()
+    except requests.RequestException as e:
+        logger.error(f"Error sending WhatsApp message: {e}")
+        return None
 
 def send_image_message(recipient, image_url, caption="", phone_id=None):
     """
@@ -141,7 +169,7 @@ def send_image_message(recipient, image_url, caption="", phone_id=None):
         phone_id (str): Phone number ID for the API request.
     
     Returns:
-        tuple: (Response object, HTTP status code)
+        dict: Response JSON from the WhatsApp API, or None if failed.
     """
     payload = get_image_message_input(recipient, image_url, caption)
     return send_message(payload, phone_id)
@@ -159,16 +187,9 @@ def download_whatsapp_image(image_id, phone_id):
     """
     try:
         url = f"https://graph.facebook.com/{VERSION}/{image_id}"
-        token = IGNITIO_TOKEN if phone_id == IGNITIO_PHONE_ID else WHATSAPP_ACCESS_TOKEN
-        headers = {
-            "Authorization": f"Bearer {token}"
-        }
-        
+        headers = {"Authorization": f"Bearer {get_token_for_phone_id(phone_id)}"}
         response = requests.get(url, headers=headers)
-        if not response.ok:
-            logger.error(f"Failed to get media URL: {response.text}")
-            return None
-            
+        response.raise_for_status()
         media_data = response.json()
         media_url = media_data.get('url')
         
@@ -177,9 +198,7 @@ def download_whatsapp_image(image_id, phone_id):
             return None
         
         image_response = requests.get(media_url, headers=headers)
-        if not image_response.ok:
-            logger.error(f"Failed to download image: {image_response.text}")
-            return None
+        image_response.raise_for_status()
         
         uploads_dir = "static/uploads"
         os.makedirs(uploads_dir, exist_ok=True)
@@ -192,9 +211,9 @@ def download_whatsapp_image(image_id, phone_id):
         with open(filepath, 'wb') as f:
             f.write(image_response.content)
         
+        logger.info(f"Image {image_id} saved to {filepath}")
         return f"/static/uploads/{filename}"
-        
-    except Exception as e:
+    except requests.RequestException as e:
         logger.error(f"Error downloading image {image_id}: {e}")
         return None
 
@@ -214,7 +233,6 @@ def process_image_message(db_manager, message_data, contact_info, phone_id):
     try:
         image_id = message_data.get('image', {}).get('id')
         mime_type = message_data.get('image', {}).get('mime_type')
-        sha256 = message_data.get('image', {}).get('sha256')
         
         image_url = download_whatsapp_image(image_id, phone_id)
         
@@ -224,7 +242,7 @@ def process_image_message(db_manager, message_data, contact_info, phone_id):
             "name": contact_info["name"],
             "type": "image",
             "body": f"📷 Image ({mime_type})" if mime_type else "📷 Image",
-            "timestamp": datetime.fromtimestamp(int(message_data["timestamp"])).isoformat(),
+            "timestamp": datetime.fromtimestamp(int(message_data["timestamp"])),
             "direction": "inbound",
             "status": "delivered",
             "read": False,
@@ -235,7 +253,6 @@ def process_image_message(db_manager, message_data, contact_info, phone_id):
         save_message(db_manager, message_info, phone_id)
         logger.info(f"Image message processed and saved: {message_info['id']}")
         return message_info
-        
     except Exception as e:
         logger.error(f"Error processing image message: {e}")
         return None
@@ -254,7 +271,6 @@ def is_valid_whatsapp_message(body):
         value = body.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {})
         is_message = "messages" in value and len(value.get("messages", [])) > 0
         is_status = "statuses" in value and len(value.get("statuses", [])) > 0
-        
         return (
             body.get("object") == "whatsapp_business_account" and
             (is_message or is_status)
@@ -270,8 +286,15 @@ def process_whatsapp_message(db_manager, body, phone_id):
         db_manager: DatabaseManager instance.
         body (dict): Webhook payload.
         phone_id (str): Phone number ID to determine the table.
+    
+    Returns:
+        dict or None: Message info if successful, None if failed.
     """
     try:
+        if not is_valid_whatsapp_message(body):
+            logger.error("Invalid WhatsApp webhook payload")
+            return None
+        
         change = body["entry"][0]["changes"][0]["value"]
         table_name = get_table_name(phone_id)
         
@@ -281,7 +304,7 @@ def process_whatsapp_message(db_manager, body, phone_id):
             
             if not messages or not contacts:
                 logger.warning("No messages or contacts found in webhook payload")
-                return
+                return None
             
             message = messages[0]
             contact = contacts[0]
@@ -298,31 +321,29 @@ def process_whatsapp_message(db_manager, body, phone_id):
             
             if message_type == "text":
                 message_body = message["text"]["body"]
-                
                 message_data = {
                     "id": message["id"],
                     "wa_id": wa_id,
                     "name": name,
                     "type": "text",
                     "body": message_body,
-                    "timestamp": datetime.fromtimestamp(int(message["timestamp"])).isoformat(),
+                    "timestamp": datetime.fromtimestamp(int(message["timestamp"])),
                     "direction": "inbound",
                     "status": "delivered",
                     "read": False,
                     "image_url": None,
                     "image_id": None
                 }
-                
                 save_message(db_manager, message_data, phone_id)
                 logger.info(f"Processed incoming text message from {wa_id}: {message_body}")
-                
+                return {"status": "success", "message_id": message["id"]}
+            
             elif message_type == "image":
-                process_image_message(db_manager, message, contact_info, phone_id)
-                logger.info(f"Processed incoming image message from {wa_id}")
-                
+                return process_image_message(db_manager, message, contact_info, phone_id)
+            
             else:
                 logger.debug(f"Ignoring unsupported message type: {message_type} from {wa_id}")
-                return
+                return None
         
         elif "statuses" in change:
             status = change["statuses"][0]
@@ -340,8 +361,11 @@ def process_whatsapp_message(db_manager, body, phone_id):
             )
             db_manager.execute_query(query, params)
             logger.info(f"Updated message status. ID: {message_id}, Status: {new_status}")
+            return {"status": "success", "message_id": message_id}
         
     except (KeyError, IndexError, TypeError) as e:
         logger.error(f"Error processing WhatsApp message: Invalid payload structure - {e}")
+        return None
     except Exception as e:
         logger.error(f"Unexpected error processing WhatsApp message: {e}")
+        return None

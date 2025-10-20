@@ -1,19 +1,26 @@
 import os
+from dotenv import load_dotenv
 
-# WhatsApp Business API Configuration
-WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN")
-VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
-EVENTIO_PHONE_ID = os.getenv("EVENTIO_PHONE_ID")
-PACKAGE_WITH_SENSE_PHONE_ID = os.getenv("PACKAGE_WITH_SENSE_PHONE_ID")
-IGNITIO_PHONE_ID = os.getenv("IGNITIO_PHONE_ID")
-IGNITIO_TOKEN = os.getenv("IGNITIO_TOKEN")
-RECIPIENT_WAID = os.getenv("RECIPIENT_WAID")
-VERSION = os.getenv("VERSION", "v19.0")
+load_dotenv()
 
-# Facebook App Details
-APP_ID = os.getenv("APP_ID")
-APP_SECRET = os.getenv("APP_SECRET")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+# Shared webhook configuration
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://yourdomain.com/webhook")
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "your_shared_verify_token")
 
-# Flask Application Settings
-DEBUG = os.getenv("FLASK_DEBUG") == "True"
+# Account 1 configuration (Eventio and Package with Sense)
+ACCOUNT1_ACCESS_TOKEN = os.getenv("ACCOUNT1_ACCESS_TOKEN")
+ACCOUNT1_PHONE_ID_EVENTIO = os.getenv("ACCOUNT1_PHONE_ID_EVENTIO")
+ACCOUNT1_PHONE_ID_PACKAGE = os.getenv("ACCOUNT1_PHONE_ID_PACKAGE")
+
+# Account 2 configuration (Ignitio Hub)
+ACCOUNT2_ACCESS_TOKEN = os.getenv("ACCOUNT2_ACCESS_TOKEN")
+ACCOUNT2_PHONE_ID = os.getenv("ACCOUNT2_PHONE_ID")
+
+# Database configuration
+DB_HOST = os.getenv("DB_HOST", "ep-quiet-mud-ad433srr-pooler.c-2.us-east-1.aws.neon.tech")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "neondb")
+DB_USER = os.getenv("DB_USER", "neondb_owner")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "npg_SIgb5lKTF3Dz")
+DB_SSLMODE = os.getenv("DB_SSLMODE", "require")
+DB_CHANNEL_BINDING = os.getenv("DB_CHANNEL_BINDING", "require")
