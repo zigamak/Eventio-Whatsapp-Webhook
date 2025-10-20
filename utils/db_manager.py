@@ -1,395 +1,387 @@
-import psycopg2
 import logging
-from psycopg2.extras import RealDictCursor
 import os
-from dotenv import load_dotenv
-import time
-
-# Load environment variables
-load_dotenv()
+import requests
+from datetime import datetime
+from config import (
+    ACCOUNT1_ACCESS_TOKEN, ACCOUNT1_PHONE_ID_EVENTIO, ACCOUNT1_PHONE_ID_PACKAGE,
+    ACCOUNT2_ACCESS_TOKEN, ACCOUNT2_PHONE_ID, VERSION
+)
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)s: %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
-class DatabaseManager:
-    """A class to manage PostgreSQL database connections and queries."""
+# Map phone IDs to table names
+PHONE_ID_TO_TABLE = {
+    ACCOUNT1_PHONE_ID_EVENTIO: 'public.eventio_messages',
+    ACCOUNT1_PHONE_ID_PACKAGE: 'public.package_with_sense_messages',
+    ACCOUNT2_PHONE_ID: 'public.ignitiohub_messages'
+}
+
+# Map phone IDs to access tokens
+PHONE_ID_TO_TOKEN = {
+    ACCOUNT1_PHONE_ID_EVENTIO: ACCOUNT1_ACCESS_TOKEN,
+    ACCOUNT1_PHONE_ID_PACKAGE: ACCOUNT1_ACCESS_TOKEN,
+    ACCOUNT2_PHONE_ID: ACCOUNT2_ACCESS_TOKEN
+}
+
+def get_table_name(phone_id):
+    """
+    Get the appropriate table name for a given phone ID.
     
-    def __init__(self, host, port, dbname, user, password, sslmode='require', channel_binding='require'):
+    Args:
+        phone_id (str): Phone number ID.
+    
+    Returns:
+        str: Corresponding table name.
+    """
+    table = PHONE_ID_TO_TABLE.get(phone_id, 'public.eventio_messages')
+    logger.debug(f"Mapping phone_id {phone_id} to table {table}")
+    return table
+
+def get_token_for_phone_id(phone_id):
+    """
+    Return the access token for a given phone_number_id.
+    
+    Args:
+        phone_id (str): Phone number ID.
+    
+    Returns:
+        str: Access token for the phone ID.
+    """
+    token = PHONE_ID_TO_TOKEN.get(phone_id, ACCOUNT1_ACCESS_TOKEN)
+    logger.debug(f"Selected token for phone_id {phone_id}")
+    return token
+
+def save_message(db_manager, message_data, phone_id):
+    """
+    Save a message to the PostgreSQL database with explicit type casting.
+    
+    Args:
+        db_manager: DatabaseManager instance.
+        message_data (dict): Message data to save.
+        phone_id (str): Phone number ID to determine the table.
+    """
+    try:
+        table_name = get_table_name(phone_id)
+        query = """
+            SELECT insert_message(
+                %s::TEXT,
+                %s::VARCHAR,
+                %s::VARCHAR,
+                %s::VARCHAR,
+                %s::VARCHAR,
+                %s::TEXT,
+                %s::TIMESTAMPTZ,
+                %s::VARCHAR,
+                %s::VARCHAR,
+                %s::BOOLEAN,
+                %s::TEXT,
+                %s::VARCHAR
+            )
         """
-        Initialize the DatabaseManager with connection parameters.
-        
-        Args:
-            host (str): Database host.
-            port (str): Database port.
-            dbname (str): Database name.
-            user (str): Database user.
-            password (str): Database password.
-            sslmode (str): SSL mode (default: 'require').
-            channel_binding (str): Channel binding mode (default: 'require').
-        """
-        self.connection_string = (
-            f"host={host} port={port} dbname={dbname} user={user} password={password} "
-            f"sslmode={sslmode} channel_binding={channel_binding}"
+        params = (
+            table_name,
+            message_data['id'],
+            message_data['wa_id'],
+            message_data['name'],
+            message_data['type'],
+            message_data['body'],
+            message_data['timestamp'],
+            message_data['direction'],
+            message_data['status'],
+            message_data['read'],
+            message_data.get('image_url'),
+            message_data.get('image_id')
         )
-        self.conn = None
-        self.cursor = None
-        self.max_retries = 3
-        self.retry_delay = 1  # seconds
-        self.connect()
-        self.create_tables_if_not_exists()
-        self.create_functions()
+        db_manager.execute_query(query, params)
+        logger.info(f"Message saved to {table_name}: {message_data['id']}")
+    except Exception as e:
+        logger.error(f"Error saving message to {table_name}: {e}")
+        raise
 
-    def connect(self):
-        """Establish a connection to the database with retry logic."""
-        retry_count = 0
-        while retry_count < self.max_retries:
-            try:
-                if self.conn:
-                    self.close()
-                
-                self.conn = psycopg2.connect(self.connection_string)
-                self.cursor = self.conn.cursor(cursor_factory=RealDictCursor)
-                logger.info(f"Successfully connected to database: {self.connection_string.split('dbname=')[1].split(' ')[0]}")
-                return
-                
-            except psycopg2.Error as e:
-                retry_count += 1
-                logger.error(f"Failed to connect to database (attempt {retry_count}/{self.max_retries}): {e}")
-                if retry_count < self.max_retries:
-                    time.sleep(self.retry_delay)
-                else:
-                    logger.error(f"Failed to connect to database after {self.max_retries} attempts")
-                    raise
-
-    def _ensure_connection(self):
-        """Ensure the database connection is active."""
-        try:
-            if not self.conn or self.conn.closed:
-                logger.info("Connection is closed, reconnecting...")
-                self.connect()
-            else:
-                # Test the connection
-                self.cursor.execute("SELECT 1")
-                self.conn.commit()
-        except psycopg2.Error:
-            logger.info("Connection test failed, reconnecting...")
-            self.connect()
-
-    def close(self):
-        """Close the database connection and cursor."""
-        try:
-            if self.cursor:
-                self.cursor.close()
-                self.cursor = None
-            if self.conn:
-                self.conn.close()
-                self.conn = None
-                logger.info("Database connection closed")
-        except Exception as e:
-            logger.error(f"Error closing database connection: {e}")
+def get_text_message_input(recipient, text):
+    """
+    Prepare the payload for sending a text message via WhatsApp API.
     
-    def execute_query(self, query, params=None, fetch=False):
-        """
-        Execute a SQL query with optional parameters and retry logic.
+    Args:
+        recipient (str): WhatsApp ID of the recipient.
+        text (str): Message text.
+    
+    Returns:
+        dict: Payload for the WhatsApp API.
+    """
+    return {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": recipient,
+        "type": "text",
+        "text": {"body": text}
+    }
+
+def get_image_message_input(recipient, image_url, caption=""):
+    """
+    Prepare the payload for sending an image message via WhatsApp API.
+    
+    Args:
+        recipient (str): WhatsApp ID of the recipient.
+        image_url (str): URL of the image to send.
+        caption (str): Optional caption for the image.
+    
+    Returns:
+        dict: Payload for the WhatsApp API.
+    """
+    payload = {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": recipient,
+        "type": "image",
+        "image": {
+            "link": image_url
+        }
+    }
+    if caption:
+        payload["image"]["caption"] = caption
+    return payload
+
+def send_message(data, phone_id):
+    """
+    Send a message via the WhatsApp API.
+    
+    Args:
+        data (dict): Payload for the WhatsApp API.
+        phone_id (str): Phone number ID for the API request.
+    
+    Returns:
+        dict: Response JSON from the WhatsApp API, or None if failed.
+    """
+    try:
+        url = f"https://graph.facebook.com/{VERSION}/{phone_id}/messages"
+        headers = {
+            "Authorization": f"Bearer {get_token_for_phone_id(phone_id)}",
+            "Content-Type": "application/json"
+        }
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        logger.info(f"Message sent successfully: {response.json()}")
+        return response.json()
+    except requests.RequestException as e:
+        logger.error(f"Error sending WhatsApp message: {e}")
+        return None
+
+def send_image_message(recipient, image_url, caption="", phone_id=None):
+    """
+    Send an image message via WhatsApp Business API.
+    
+    Args:
+        recipient (str): WhatsApp ID of the recipient.
+        image_url (str): URL of the image to send.
+        caption (str): Optional caption for the image.
+        phone_id (str): Phone number ID for the API request.
+    
+    Returns:
+        dict: Response JSON from the WhatsApp API, or None if failed.
+    """
+    payload = get_image_message_input(recipient, image_url, caption)
+    return send_message(payload, phone_id)
+
+def download_whatsapp_image(image_id, phone_id):
+    """
+    Download image from WhatsApp Media API and return local file path.
+    
+    Args:
+        image_id (str): WhatsApp media ID.
+        phone_id (str): Phone number ID for authentication.
+    
+    Returns:
+        str or None: Local file path if successful, None if failed.
+    """
+    try:
+        url = f"https://graph.facebook.com/{VERSION}/{image_id}"
+        headers = {"Authorization": f"Bearer {get_token_for_phone_id(phone_id)}"}
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        media_data = response.json()
+        media_url = media_data.get('url')
         
-        Args:
-            query (str): SQL query to execute.
-            params (tuple): Parameters for the query (optional).
-            fetch (bool): Whether to fetch results (default: False).
+        if not media_url:
+            logger.error("No media URL in response")
+            return None
         
-        Returns:
-            list or None: List of results if fetch=True, None otherwise.
-        """
-        retry_count = 0
-        while retry_count < self.max_retries:
-            try:
-                self._ensure_connection()
-                
-                # Log the query (be careful with sensitive data)
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f"Executing query: {query[:100]}..." if len(query) > 100 else query)
-                
-                self.cursor.execute(query, params)
-                self.conn.commit()
-                
-                if fetch:
-                    results = self.cursor.fetchall()
-                    logger.debug(f"Query executed successfully, fetched {len(results)} rows")
-                    return results
-                else:
-                    logger.debug("Query executed successfully")
-                    return None
-                    
-            except psycopg2.Error as e:
-                retry_count += 1
-                error_msg = f"Database error (attempt {retry_count}/{self.max_retries}): {e}"
-                logger.error(error_msg)
-                
-                if retry_count < self.max_retries:
-                    # Check if it's a connection issue that we can retry
-                    if any(err_code in str(e) for err_code in ['connection', 'server closed', 'terminated']):
-                        logger.info("Connection error detected, retrying...")
-                        time.sleep(self.retry_delay)
-                        try:
-                            self.conn.rollback()
-                        except:
-                            pass
-                        self.connect()
-                    else:
-                        # Non-retryable error, don't retry
-                        logger.error(f"Non-retryable error: {e}")
-                        try:
-                            self.conn.rollback()
-                        except:
-                            pass
-                        raise
-                else:
-                    logger.error(f"Failed to execute query after {self.max_retries} attempts")
-                    try:
-                        self.conn.rollback()
-                    except:
-                        pass
-                    raise
-                    
-            except Exception as e:
-                logger.error(f"Unexpected error executing query: {e}")
-                try:
-                    if self.conn:
-                        self.conn.rollback()
-                except:
-                    pass
-                raise
+        image_response = requests.get(media_url, headers=headers)
+        image_response.raise_for_status()
+        
+        uploads_dir = "static/uploads"
+        os.makedirs(uploads_dir, exist_ok=True)
+        
+        content_type = image_response.headers.get('content-type', '')
+        ext = '.jpg' if 'jpeg' in content_type else '.png' if 'png' in content_type else '.gif' if 'gif' in content_type else '.jpg'
+        filename = f"{image_id}{ext}"
+        filepath = os.path.join(uploads_dir, filename)
+        
+        with open(filepath, 'wb') as f:
+            f.write(image_response.content)
+        
+        logger.info(f"Image {image_id} saved to {filepath}")
+        return f"/static/uploads/{filename}"
+    except requests.RequestException as e:
+        logger.error(f"Error downloading image {image_id}: {e}")
+        return None
 
-    def test_connection(self):
-        """Test the database connection."""
-        try:
-            self._ensure_connection()
-            self.cursor.execute("SELECT version()")
-            version = self.cursor.fetchone()
-            logger.info(f"Database connection test successful. Version: {version[0] if version else 'Unknown'}")
-            return True
-        except Exception as e:
-            logger.error(f"Database connection test failed: {e}")
-            return False
+def process_image_message(db_manager, message_data, contact_info, phone_id):
+    """
+    Process incoming image message.
+    
+    Args:
+        db_manager: DatabaseManager instance.
+        message_data (dict): Image message data from webhook.
+        contact_info (dict): Contact information.
+        phone_id (str): Phone number ID.
+    
+    Returns:
+        dict or None: Message info if successful, None if failed.
+    """
+    try:
+        image_id = message_data.get('image', {}).get('id')
+        mime_type = message_data.get('image', {}).get('mime_type')
+        
+        image_url = download_whatsapp_image(image_id, phone_id)
+        
+        message_info = {
+            "id": message_data["id"],
+            "wa_id": contact_info["wa_id"],
+            "name": contact_info["name"],
+            "type": "image",
+            "body": f"📷 Image ({mime_type})" if mime_type else "📷 Image",
+            "timestamp": datetime.fromtimestamp(int(message_data["timestamp"])),
+            "direction": "inbound",
+            "status": "delivered",
+            "read": False,
+            "image_url": image_url,
+            "image_id": image_id
+        }
+        
+        save_message(db_manager, message_info, phone_id)
+        logger.info(f"Image message processed and saved: {message_info['id']}")
+        return message_info
+    except Exception as e:
+        logger.error(f"Error processing image message: {e}")
+        return None
 
-    def get_table_info(self, table_name, schema='public'):
-        """Get information about a table's columns."""
-        try:
+def is_valid_whatsapp_message(body):
+    """
+    Validate the structure of a WhatsApp webhook payload.
+    
+    Args:
+        body (dict): Webhook payload.
+    
+    Returns:
+        bool: True if valid, False otherwise.
+    """
+    try:
+        value = body.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {})
+        is_message = "messages" in value and len(value.get("messages", [])) > 0
+        is_status = "statuses" in value and len(value.get("statuses", [])) > 0
+        return (
+            body.get("object") == "whatsapp_business_account" and
+            (is_message or is_status)
+        )
+    except (TypeError, IndexError):
+        return False
+
+def process_whatsapp_message(db_manager, body, phone_id):
+    """
+    Process an incoming WhatsApp message or status update and save it to the database.
+    
+    Args:
+        db_manager: DatabaseManager instance.
+        body (dict): Webhook payload.
+        phone_id (str): Phone number ID to determine the table.
+    
+    Returns:
+        dict or None: Message info if successful, None if failed.
+    """
+    try:
+        if not is_valid_whatsapp_message(body):
+            logger.error("Invalid WhatsApp webhook payload")
+            return None
+        
+        change = body["entry"][0]["changes"][0]["value"]
+        table_name = get_table_name(phone_id)
+        
+        if "messages" in change:
+            messages = change.get("messages", [])
+            contacts = change.get("contacts", [])
+            
+            if not messages or not contacts:
+                logger.warning("No messages or contacts found in webhook payload")
+                return None
+            
+            message = messages[0]
+            contact = contacts[0]
+            
+            wa_id = message["from"]
+            name = contact.get("profile", {}).get("name", "Unknown Contact")
+            
+            contact_info = {
+                "wa_id": wa_id,
+                "name": name
+            }
+            
+            message_type = message.get('type')
+            
+            if message_type == "text":
+                message_body = message["text"]["body"]
+                message_data = {
+                    "id": message["id"],
+                    "wa_id": wa_id,
+                    "name": name,
+                    "type": "text",
+                    "body": message_body,
+                    "timestamp": datetime.fromtimestamp(int(message["timestamp"])),
+                    "direction": "inbound",
+                    "status": "delivered",
+                    "read": False,
+                    "image_url": None,
+                    "image_id": None
+                }
+                save_message(db_manager, message_data, phone_id)
+                logger.info(f"Processed incoming text message from {wa_id}: {message_body}")
+                return {"status": "success", "message_id": message["id"]}
+            
+            elif message_type == "image":
+                return process_image_message(db_manager, message, contact_info, phone_id)
+            
+            else:
+                logger.debug(f"Ignoring unsupported message type: {message_type} from {wa_id}")
+                return None
+        
+        elif "statuses" in change:
+            status = change["statuses"][0]
+            message_id = status.get('id')
+            new_status = status.get('status')
+            
             query = """
-                SELECT column_name, data_type, is_nullable
-                FROM information_schema.columns
-                WHERE table_schema = %s AND table_name = %s
-                ORDER BY ordinal_position
-            """
-            return self.execute_query(query, (schema, table_name), fetch=True)
-        except Exception as e:
-            logger.error(f"Error getting table info for {schema}.{table_name}: {e}")
-            return []
-
-    def table_exists(self, table_name, schema='public'):
-        """Check if a table exists in the specified schema."""
-        try:
-            query = """
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables
-                    WHERE table_schema = %s AND table_name = %s
+                SELECT update_message_status(
+                    %s::TEXT,
+                    %s::VARCHAR,
+                    %s::VARCHAR,
+                    %s::BOOLEAN
                 )
             """
-            result = self.execute_query(query, (schema, table_name), fetch=True)
-            return result[0]['exists']
-        except Exception as e:
-            logger.error(f"Error checking if table {schema}.{table_name} exists: {e}")
-            return False
-
-    def create_tables_if_not_exists(self, schema='public'):
-        """Create required tables if they do not exist in the specified schema."""
-        tables = [
-            {
-                'name': 'eventio_messages',
-                'schema': """
-                    CREATE TABLE {schema}.{name} (
-                        id VARCHAR(255) PRIMARY KEY,
-                        wa_id VARCHAR(255),
-                        name VARCHAR(255),
-                        type VARCHAR(50),
-                        body TEXT,
-                        timestamp TIMESTAMPTZ,
-                        direction VARCHAR(50),
-                        status VARCHAR(50),
-                        read BOOLEAN,
-                        image_url TEXT,
-                        image_id VARCHAR(255)
-                    )
-                """
-            },
-            {
-                'name': 'package_with_sense_messages',
-                'schema': """
-                    CREATE TABLE {schema}.{name} (
-                        id VARCHAR(255) PRIMARY KEY,
-                        wa_id VARCHAR(255),
-                        name VARCHAR(255),
-                        type VARCHAR(50),
-                        body TEXT,
-                        timestamp TIMESTAMPTZ,
-                        direction VARCHAR(50),
-                        status VARCHAR(50),
-                        read BOOLEAN,
-                        image_url TEXT,
-                        image_id VARCHAR(255)
-                    )
-                """
-            },
-            {
-                'name': 'ignitiohub_messages',
-                'schema': """
-                    CREATE TABLE {schema}.{name} (
-                        id VARCHAR(255) PRIMARY KEY,
-                        wa_id VARCHAR(255),
-                        name VARCHAR(255),
-                        type VARCHAR(50),
-                        body TEXT,
-                        timestamp TIMESTAMPTZ,
-                        direction VARCHAR(50),
-                        status VARCHAR(50),
-                        read BOOLEAN,
-                        image_url TEXT,
-                        image_id VARCHAR(255)
-                    )
-                """
-            }
-        ]
-
-        for table in tables:
-            table_name = table['name']
-            if not self.table_exists(table_name, schema):
-                try:
-                    query = table['schema'].format(schema=schema, name=table_name)
-                    self.execute_query(query)
-                    logger.info(f"Created table {schema}.{table_name}")
-                except psycopg2.Error as e:
-                    logger.error(f"Failed to create table {schema}.{table_name}: {e}")
-                    if 'permission denied for schema' in str(e).lower():
-                        logger.error(
-                            f"Permission denied for schema {schema}. "
-                            "Try granting CREATE privileges with: "
-                            f"GRANT CREATE ON SCHEMA {schema} TO {self.connection_string.split('user=')[1].split(' ')[0]};"
-                        )
-                    raise
-            else:
-                logger.info(f"Table {schema}.{table_name} already exists")
-
-    def create_functions(self, schema='public'):
-        """Create required database functions if they do not exist."""
-        functions = [
-            {
-                'name': 'insert_message',
-                'schema': """
-                    CREATE OR REPLACE FUNCTION {schema}.insert_message(
-                        p_table_name TEXT,
-                        p_id VARCHAR(255),
-                        p_wa_id VARCHAR(255),
-                        p_name VARCHAR(255),
-                        p_type VARCHAR(50),
-                        p_body TEXT,
-                        p_timestamp TIMESTAMPTZ,
-                        p_direction VARCHAR(50),
-                        p_status VARCHAR(50),
-                        p_read BOOLEAN,
-                        p_image_url TEXT,
-                        p_image_id VARCHAR(255)
-                    ) RETURNS VOID AS $$
-                    BEGIN
-                        EXECUTE format('
-                            INSERT INTO {schema}.%I (id, wa_id, name, type, body, timestamp, direction, status, read, image_url, image_id)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-                        ', p_table_name)
-                        USING p_id, p_wa_id, p_name, p_type, p_body, p_timestamp, p_direction, p_status, p_read, p_image_url, p_image_id;
-                    END;
-                    $$ LANGUAGE plpgsql;
-                """
-            },
-            {
-                'name': 'update_message_status',
-                'schema': """
-                    CREATE OR REPLACE FUNCTION {schema}.update_message_status(
-                        p_table_name TEXT,
-                        p_message_id VARCHAR(255),
-                        p_status VARCHAR(50),
-                        p_read BOOLEAN
-                    ) RETURNS VOID AS $$
-                    BEGIN
-                        EXECUTE format('
-                            UPDATE {schema}.%I
-                            SET status = $1, read = $2
-                            WHERE id = $3
-                        ', p_table_name)
-                        USING p_status, p_read, p_message_id;
-                    END;
-                    $$ LANGUAGE plpgsql;
-                """
-            }
-        ]
-
-        for func in functions:
-            try:
-                query = func['schema'].format(schema=schema)
-                self.execute_query(query)  # No params needed since schema is formatted directly
-                logger.info(f"Created function {schema}.{func['name']}")
-                # Grant execute permissions
-                user = self.connection_string.split('user=')[1].split(' ')[0]
-                if func['name'] == 'insert_message':
-                    self.execute_query(
-                        f"GRANT EXECUTE ON FUNCTION {schema}.insert_message("
-                        f"TEXT, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TEXT, TIMESTAMPTZ, VARCHAR, VARCHAR, BOOLEAN, TEXT, VARCHAR"
-                        f") TO {user}"
-                    )
-                else:
-                    self.execute_query(
-                        f"GRANT EXECUTE ON FUNCTION {schema}.update_message_status(TEXT, VARCHAR, VARCHAR, BOOLEAN) "
-                        f"TO {user}"
-                    )
-                logger.info(f"Granted EXECUTE on {schema}.{func['name']} to user {user}")
-            except psycopg2.Error as e:
-                logger.error(f"Failed to create function {schema}.{func['name']}: {e}")
-                if 'permission denied for schema' in str(e).lower():
-                    logger.error(
-                        f"Permission denied for schema {schema}. "
-                        "Try granting CREATE privileges with: "
-                        f"GRANT CREATE ON SCHEMA {schema} TO {user};"
-                    )
-                raise
-
-    def __del__(self):
-        """Destructor to ensure database connection is closed."""
-        try:
-            self.close()
-        except:
-            pass
-
-# Initialize DatabaseManager instance for neondb
-try:
-    db_manager = DatabaseManager(
-        host=os.getenv('DB_HOST', 'ep-quiet-mud-ad433srr-pooler.c-2.us-east-1.aws.neon.tech'),
-        port=os.getenv('DB_PORT', '5432'),
-        dbname=os.getenv('DB_NAME', 'neondb'),
-        user=os.getenv('DB_USER', 'neondb_owner'),
-        password=os.getenv('DB_PASSWORD', 'npg_SIgb5lKTF3Dz'),
-        sslmode=os.getenv('DB_SSLMODE', 'require'),
-        channel_binding=os.getenv('DB_CHANNEL_BINDING', 'require')
-    )
-    
-    # Test the connection on startup
-    if db_manager.test_connection():
-        logger.info("Database manager initialized successfully")
-    else:
-        logger.error("Database manager initialization failed - connection test failed")
+            params = (
+                table_name,
+                message_id,
+                new_status,
+                new_status == 'read'
+            )
+            db_manager.execute_query(query, params)
+            logger.info(f"Updated message status. ID: {message_id}, Status: {new_status}")
+            return {"status": "success", "message_id": message_id}
         
-except Exception as e:
-    logger.error(f"Failed to initialize database manager: {e}")
-    raise
+    except (KeyError, IndexError, TypeError) as e:
+        logger.error(f"Error processing WhatsApp message: Invalid payload structure - {e}")
+        return None
+    except Exception as e:
+        logger.error(f"Unexpected error processing WhatsApp message: {e}")
+        return None
