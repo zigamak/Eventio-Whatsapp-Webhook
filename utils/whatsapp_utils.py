@@ -1,9 +1,8 @@
-#whatsapp_utils,py
 import logging
 import os
 from datetime import datetime
 import requests
-from config import WHATSAPP_ACCESS_TOKEN, VERSION
+from config import WHATSAPP_ACCESS_TOKEN, IGNITIO_TOKEN, VERSION, IGNITIO_PHONE_ID
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -11,7 +10,8 @@ logger = logging.getLogger(__name__)
 # Map phone IDs to table names
 PHONE_ID_TO_TABLE = {
     '608867502309431': 'eventio_messages',
-    '630482473482641': 'package_with_sense_messages'
+    '630482473482641': 'package_with_sense_messages',
+    IGNITIO_PHONE_ID: 'ignitiohub_messages'
 }
 
 def get_table_name(phone_id):
@@ -120,8 +120,9 @@ def send_message(data, phone_id):
         tuple: (Response object, HTTP status code)
     """
     url = f"https://graph.facebook.com/{VERSION}/{phone_id}/messages"
+    token = IGNITIO_TOKEN if phone_id == IGNITIO_PHONE_ID else WHATSAPP_ACCESS_TOKEN
     headers = {
-        "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}",
+        "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
     
@@ -158,8 +159,9 @@ def download_whatsapp_image(image_id, phone_id):
     """
     try:
         url = f"https://graph.facebook.com/{VERSION}/{image_id}"
+        token = IGNITIO_TOKEN if phone_id == IGNITIO_PHONE_ID else WHATSAPP_ACCESS_TOKEN
         headers = {
-            "Authorization": f"Bearer {WHATSAPP_ACCESS_TOKEN}"
+            "Authorization": f"Bearer {token}"
         }
         
         response = requests.get(url, headers=headers)

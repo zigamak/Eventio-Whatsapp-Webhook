@@ -41,6 +41,8 @@ class DatabaseManager:
         self.max_retries = 3
         self.retry_delay = 1  # seconds
         self.connect()
+        self.create_tables_if_not_exists()
+        self.create_functions()
 
     def connect(self):
         """Establish a connection to the database with retry logic."""
@@ -139,7 +141,7 @@ class DatabaseManager:
                             pass
                         self.connect()
                     else:
-                        # Non-connection error, don't retry
+                        # Non-retryable error, don't retry
                         logger.error(f"Non-retryable error: {e}")
                         try:
                             self.conn.rollback()
@@ -175,19 +177,193 @@ class DatabaseManager:
             logger.error(f"Database connection test failed: {e}")
             return False
 
-    def get_table_info(self, table_name):
+    def get_table_info(self, table_name, schema='public'):
         """Get information about a table's columns."""
         try:
             query = """
                 SELECT column_name, data_type, is_nullable
                 FROM information_schema.columns
-                WHERE table_name = %s
+                WHERE table_schema = %s AND table_name = %s
                 ORDER BY ordinal_position
             """
-            return self.execute_query(query, (table_name,), fetch=True)
+            return self.execute_query(query, (schema, table_name), fetch=True)
         except Exception as e:
-            logger.error(f"Error getting table info for {table_name}: {e}")
+            logger.error(f"Error getting table info for {schema}.{table_name}: {e}")
             return []
+
+    def table_exists(self, table_name, schema='public'):
+        """Check if a table exists in the specified schema."""
+        try:
+            query = """
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables
+                    WHERE table_schema = %s AND table_name = %s
+                )
+            """
+            result = self.execute_query(query, (schema, table_name), fetch=True)
+            return result[0]['exists']
+        except Exception as e:
+            logger.error(f"Error checking if table {schema}.{table_name} exists: {e}")
+            return False
+
+    def create_tables_if_not_exists(self, schema='public'):
+        """Create required tables if they do not exist in the specified schema."""
+        tables = [
+            {
+                'name': 'eventio_messages',
+                'schema': """
+                    CREATE TABLE {schema}.{name} (
+                        id VARCHAR(255) PRIMARY KEY,
+                        wa_id VARCHAR(255),
+                        name VARCHAR(255),
+                        type VARCHAR(50),
+                        body TEXT,
+                        timestamp TIMESTAMPTZ,
+                        direction VARCHAR(50),
+                        status VARCHAR(50),
+                        read BOOLEAN,
+                        image_url TEXT,
+                        image_id VARCHAR(255)
+                    )
+                """
+            },
+            {
+                'name': 'package_with_sense_messages',
+                'schema': """
+                    CREATE TABLE {schema}.{name} (
+                        id VARCHAR(255) PRIMARY KEY,
+                        wa_id VARCHAR(255),
+                        name VARCHAR(255),
+                        type VARCHAR(50),
+                        body TEXT,
+                        timestamp TIMESTAMPTZ,
+                        direction VARCHAR(50),
+                        status VARCHAR(50),
+                        read BOOLEAN,
+                        image_url TEXT,
+                        image_id VARCHAR(255)
+                    )
+                """
+            },
+            {
+                'name': 'ignitiohub_messages',
+                'schema': """
+                    CREATE TABLE {schema}.{name} (
+                        id VARCHAR(255) PRIMARY KEY,
+                        wa_id VARCHAR(255),
+                        name VARCHAR(255),
+                        type VARCHAR(50),
+                        body TEXT,
+                        timestamp TIMESTAMPTZ,
+                        direction VARCHAR(50),
+                        status VARCHAR(50),
+                        read BOOLEAN,
+                        image_url TEXT,
+                        image_id VARCHAR(255)
+                    )
+                """
+            }
+        ]
+
+        for table in tables:
+            table_name = table['name']
+            if not self.table_exists(table_name, schema):
+                try:
+                    query = table['schema'].format(schema=schema, name=table_name)
+                    self.execute_query(query)
+                    logger.info(f"Created table {schema}.{table_name}")
+                except psycopg2.Error as e:
+                    logger.error(f"Failed to create table {schema}.{table_name}: {e}")
+                    if 'permission denied for schema' in str(e).lower():
+                        logger.error(
+                            f"Permission denied for schema {schema}. "
+                            "Try granting CREATE privileges with: "
+                            f"GRANT CREATE ON SCHEMA {schema} TO {self.connection_string.split('user=')[1].split(' ')[0]};"
+                        )
+                    raise
+            else:
+                logger.info(f"Table {schema}.{table_name} already exists")
+
+    def create_functions(self, schema='public'):
+        """Create required database functions if they do not exist."""
+        functions = [
+            {
+                'name': 'insert_message',
+                'schema': """
+                    CREATE OR REPLACE FUNCTION {schema}.insert_message(
+                        p_table_name TEXT,
+                        p_id VARCHAR(255),
+                        p_wa_id VARCHAR(255),
+                        p_name VARCHAR(255),
+                        p_type VARCHAR(50),
+                        p_body TEXT,
+                        p_timestamp TIMESTAMPTZ,
+                        p_direction VARCHAR(50),
+                        p_status VARCHAR(50),
+                        p_read BOOLEAN,
+                        p_image_url TEXT,
+                        p_image_id VARCHAR(255)
+                    ) RETURNS VOID AS $$
+                    BEGIN
+                        EXECUTE format('
+                            INSERT INTO {schema}.%I (id, wa_id, name, type, body, timestamp, direction, status, read, image_url, image_id)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                        ', p_table_name)
+                        USING p_id, p_wa_id, p_name, p_type, p_body, p_timestamp, p_direction, p_status, p_read, p_image_url, p_image_id;
+                    END;
+                    $$ LANGUAGE plpgsql;
+                """
+            },
+            {
+                'name': 'update_message_status',
+                'schema': """
+                    CREATE OR REPLACE FUNCTION {schema}.update_message_status(
+                        p_table_name TEXT,
+                        p_message_id VARCHAR(255),
+                        p_status VARCHAR(50),
+                        p_read BOOLEAN
+                    ) RETURNS VOID AS $$
+                    BEGIN
+                        EXECUTE format('
+                            UPDATE {schema}.%I
+                            SET status = $1, read = $2
+                            WHERE id = $3
+                        ', p_table_name)
+                        USING p_status, p_read, p_message_id;
+                    END;
+                    $$ LANGUAGE plpgsql;
+                """
+            }
+        ]
+
+        for func in functions:
+            try:
+                query = func['schema'].format(schema=schema)
+                self.execute_query(query)  # No params needed since schema is formatted directly
+                logger.info(f"Created function {schema}.{func['name']}")
+                # Grant execute permissions
+                user = self.connection_string.split('user=')[1].split(' ')[0]
+                if func['name'] == 'insert_message':
+                    self.execute_query(
+                        f"GRANT EXECUTE ON FUNCTION {schema}.insert_message("
+                        f"TEXT, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TEXT, TIMESTAMPTZ, VARCHAR, VARCHAR, BOOLEAN, TEXT, VARCHAR"
+                        f") TO {user}"
+                    )
+                else:
+                    self.execute_query(
+                        f"GRANT EXECUTE ON FUNCTION {schema}.update_message_status(TEXT, VARCHAR, VARCHAR, BOOLEAN) "
+                        f"TO {user}"
+                    )
+                logger.info(f"Granted EXECUTE on {schema}.{func['name']} to user {user}")
+            except psycopg2.Error as e:
+                logger.error(f"Failed to create function {schema}.{func['name']}: {e}")
+                if 'permission denied for schema' in str(e).lower():
+                    logger.error(
+                        f"Permission denied for schema {schema}. "
+                        "Try granting CREATE privileges with: "
+                        f"GRANT CREATE ON SCHEMA {schema} TO {user};"
+                    )
+                raise
 
     def __del__(self):
         """Destructor to ensure database connection is closed."""
