@@ -4,8 +4,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Shared webhook configuration
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://yourdomain.com/webhook")
-VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "your_shared_verify_token")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://eventio-whatsapp-webhook-kroi.onrender.com")
+VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "123456")
+VERSION = os.getenv("WHATSAPP_API_VERSION", "v20.0")  # WhatsApp API version
 
 # Account 1 configuration (Eventio and Package with Sense)
 ACCOUNT1_ACCESS_TOKEN = os.getenv("ACCOUNT1_ACCESS_TOKEN")
