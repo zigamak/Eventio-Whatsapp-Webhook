@@ -1,4 +1,3 @@
-
 from flask import Blueprint, request, render_template, jsonify
 from utils.whatsapp_utils import process_whatsapp_message, send_message, send_image_message, download_whatsapp_image, get_table_name
 from utils.db_manager import db_manager
@@ -48,11 +47,11 @@ def eventio():
     logger.debug(f"Rendering eventio page with phone_id: {ACCOUNT1_PHONE_ID_EVENTIO}")
     return render_template('eventio.html', phone_id=ACCOUNT1_PHONE_ID_EVENTIO)
 
-@bp.route('/package_with_sense')
+@bp.route('/') # Changed from '/package_with_sense' to '/' to make it the default
 def package_with_sense():
-    """Render Package with Sense page."""
+    """Render Package with Sense page (now the default root page)."""
     logger.debug(f"Rendering package_with_sense page with phone_id: {ACCOUNT1_PHONE_ID_PACKAGE}")
-    return render_template('package_with_sense.html', phone_id=ACCOUNT1_PHONE_ID_PACKAGE)
+    return render_template('index.html', phone_id=ACCOUNT1_PHONE_ID_PACKAGE)
 
 @bp.route('/ignitiohub')
 def ignitiohub():

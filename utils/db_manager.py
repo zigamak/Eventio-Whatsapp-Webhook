@@ -171,7 +171,9 @@ class DatabaseManager:
             self._ensure_connection()
             self.cursor.execute("SELECT version()")
             version = self.cursor.fetchone()
-            logger.info(f"Database connection test successful. Version: {version[0] if version else 'Unknown'}")
+            # RealDictCursor returns a dictionary, not a tuple
+            version_str = version['version'] if version else 'Unknown'
+            logger.info(f"Database connection test successful. Version: {version_str}")
             return True
         except Exception as e:
             logger.error(f"Database connection test failed: {e}")
@@ -286,10 +288,31 @@ class DatabaseManager:
 
     def create_functions(self, schema='public'):
         """Create required database functions if they do not exist."""
+        # First, drop existing functions to avoid conflicts
+        # We need to specify the exact argument types
+        try:
+            drop_queries = [
+                f"""DROP FUNCTION IF EXISTS {schema}.insert_message(
+                    TEXT, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TEXT, TIMESTAMPTZ, 
+                    VARCHAR, VARCHAR, BOOLEAN, TEXT, VARCHAR
+                ) CASCADE""",
+                f"""DROP FUNCTION IF EXISTS {schema}.update_message_status(
+                    TEXT, VARCHAR, VARCHAR, BOOLEAN
+                ) CASCADE"""
+            ]
+            for query in drop_queries:
+                try:
+                    self.execute_query(query)
+                    logger.info(f"Dropped existing function if it existed")
+                except Exception as drop_err:
+                    logger.debug(f"Could not drop function (may not exist): {drop_err}")
+        except Exception as e:
+            logger.warning(f"Error dropping functions (this is usually OK): {e}")
+
         functions = [
             {
                 'name': 'insert_message',
-                'schema': """
+                'schema': f"""
                     CREATE OR REPLACE FUNCTION {schema}.insert_message(
                         p_table_name TEXT,
                         p_id VARCHAR(255),
@@ -306,7 +329,7 @@ class DatabaseManager:
                     ) RETURNS VOID AS $$
                     BEGIN
                         EXECUTE format('
-                            INSERT INTO {schema}.%I (id, wa_id, name, type, body, timestamp, direction, status, read, image_url, image_id)
+                            INSERT INTO %I (id, wa_id, name, type, body, timestamp, direction, status, read, image_url, image_id)
                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                         ', p_table_name)
                         USING p_id, p_wa_id, p_name, p_type, p_body, p_timestamp, p_direction, p_status, p_read, p_image_url, p_image_id;
@@ -316,7 +339,7 @@ class DatabaseManager:
             },
             {
                 'name': 'update_message_status',
-                'schema': """
+                'schema': f"""
                     CREATE OR REPLACE FUNCTION {schema}.update_message_status(
                         p_table_name TEXT,
                         p_message_id VARCHAR(255),
@@ -325,7 +348,7 @@ class DatabaseManager:
                     ) RETURNS VOID AS $$
                     BEGIN
                         EXECUTE format('
-                            UPDATE {schema}.%I
+                            UPDATE %I
                             SET status = $1, read = $2
                             WHERE id = $3
                         ', p_table_name)
@@ -338,26 +361,31 @@ class DatabaseManager:
 
         for func in functions:
             try:
-                query = func['schema'].format(schema=schema)
-                self.execute_query(query)  # No params needed since schema is formatted directly
+                query = func['schema']
+                self.execute_query(query)
                 logger.info(f"Created function {schema}.{func['name']}")
+                
                 # Grant execute permissions
                 user = self.connection_string.split('user=')[1].split(' ')[0]
                 if func['name'] == 'insert_message':
-                    self.execute_query(
-                        f"GRANT EXECUTE ON FUNCTION {schema}.insert_message("
-                        f"TEXT, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TEXT, TIMESTAMPTZ, VARCHAR, VARCHAR, BOOLEAN, TEXT, VARCHAR"
-                        f") TO {user}"
-                    )
+                    grant_query = f"""
+                        GRANT EXECUTE ON FUNCTION {schema}.insert_message(
+                            TEXT, VARCHAR, VARCHAR, VARCHAR, VARCHAR, TEXT, TIMESTAMPTZ, 
+                            VARCHAR, VARCHAR, BOOLEAN, TEXT, VARCHAR
+                        ) TO {user}
+                    """
                 else:
-                    self.execute_query(
-                        f"GRANT EXECUTE ON FUNCTION {schema}.update_message_status(TEXT, VARCHAR, VARCHAR, BOOLEAN) "
-                        f"TO {user}"
-                    )
+                    grant_query = f"""
+                        GRANT EXECUTE ON FUNCTION {schema}.update_message_status(
+                            TEXT, VARCHAR, VARCHAR, BOOLEAN
+                        ) TO {user}
+                    """
+                self.execute_query(grant_query)
                 logger.info(f"Granted EXECUTE on {schema}.{func['name']} to user {user}")
             except psycopg2.Error as e:
                 logger.error(f"Failed to create function {schema}.{func['name']}: {e}")
                 if 'permission denied for schema' in str(e).lower():
+                    user = self.connection_string.split('user=')[1].split(' ')[0]
                     logger.error(
                         f"Permission denied for schema {schema}. "
                         "Try granting CREATE privileges with: "
