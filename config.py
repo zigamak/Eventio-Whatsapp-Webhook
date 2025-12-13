@@ -8,12 +8,15 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL", "https://eventio-whatsapp-webhook-kroi.on
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN", "123456")
 VERSION = os.getenv("WHATSAPP_API_VERSION", "v20.0")  # WhatsApp API version
 
-# Account 1 configuration (Eventio and Package with Sense)
-ACCOUNT1_ACCESS_TOKEN = os.getenv("ACCOUNT1_ACCESS_TOKEN")
+# Eventio configuration
+EVENTIO_ACCESS_TOKEN = os.getenv("EVENTIO_ACCESS_TOKEN")
 ACCOUNT1_PHONE_ID_EVENTIO = os.getenv("ACCOUNT1_PHONE_ID_EVENTIO")
+
+# Package with Sense configuration
+PACKAGE_ACCESS_TOKEN = os.getenv("PACKAGE_ACCESS_TOKEN")
 ACCOUNT1_PHONE_ID_PACKAGE = os.getenv("ACCOUNT1_PHONE_ID_PACKAGE")
 
-# Account 2 configuration (Ignitio Hub)
+# Ignitio Hub configuration
 ACCOUNT2_ACCESS_TOKEN = os.getenv("ACCOUNT2_ACCESS_TOKEN")
 ACCOUNT2_PHONE_ID = os.getenv("ACCOUNT2_PHONE_ID")
 

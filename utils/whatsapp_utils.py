@@ -3,7 +3,8 @@ import os
 import requests
 from datetime import datetime
 from config import (
-    ACCOUNT1_ACCESS_TOKEN, ACCOUNT1_PHONE_ID_EVENTIO, ACCOUNT1_PHONE_ID_PACKAGE,
+    EVENTIO_ACCESS_TOKEN, ACCOUNT1_PHONE_ID_EVENTIO,
+    PACKAGE_ACCESS_TOKEN, ACCOUNT1_PHONE_ID_PACKAGE,
     ACCOUNT2_ACCESS_TOKEN, ACCOUNT2_PHONE_ID, VERSION
 )
 
@@ -18,10 +19,10 @@ PHONE_ID_TO_TABLE = {
     ACCOUNT2_PHONE_ID: 'public.ignitiohub_messages'
 }
 
-# Map phone IDs to access tokens
+# Map phone IDs to access tokens (each phone ID has its own token)
 PHONE_ID_TO_TOKEN = {
-    ACCOUNT1_PHONE_ID_EVENTIO: ACCOUNT1_ACCESS_TOKEN,
-    ACCOUNT1_PHONE_ID_PACKAGE: ACCOUNT1_ACCESS_TOKEN,
+    ACCOUNT1_PHONE_ID_EVENTIO: EVENTIO_ACCESS_TOKEN,
+    ACCOUNT1_PHONE_ID_PACKAGE: PACKAGE_ACCESS_TOKEN,
     ACCOUNT2_PHONE_ID: ACCOUNT2_ACCESS_TOKEN
 }
 
@@ -49,8 +50,12 @@ def get_token_for_phone_id(phone_id):
     Returns:
         str: Access token for the phone ID.
     """
-    token = PHONE_ID_TO_TOKEN.get(phone_id, ACCOUNT1_ACCESS_TOKEN)
-    logger.debug(f"Selected token for phone_id {phone_id}")
+    token = PHONE_ID_TO_TOKEN.get(phone_id)
+    if not token:
+        logger.warning(f"No token found for phone_id {phone_id}, using EVENTIO_ACCESS_TOKEN as fallback")
+        token = EVENTIO_ACCESS_TOKEN
+    else:
+        logger.debug(f"Selected token for phone_id {phone_id}")
     return token
 
 def save_message(db_manager, message_data, phone_id):

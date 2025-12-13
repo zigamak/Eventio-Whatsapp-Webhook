@@ -31,15 +31,21 @@
         .chat-bubble.received {
             background-color: #FFFFFF;
         }
+        /* Ensure proper layout */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body class="bg-gray-100 font-sans">
-    <div class="flex h-screen">
-        <div id="chat-list" class="w-full md:w-1/3 bg-white border-r border-gray-200 flex flex-col">
-            <div class="bg-blue-600 text-white p-4 flex items-center justify-between">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Chat List Sidebar -->
+        <div id="chat-list" class="w-full md:w-96 bg-white border-r border-gray-200 flex flex-col md:flex">
+            <div class="bg-blue-600 text-white p-4 flex items-center justify-between flex-shrink-0">
                 <h1 class="text-xl font-semibold">IgnitioHub</h1>
             </div>
-            <div class="p-2">
+            <div class="p-2 flex-shrink-0">
                 <input type="text" id="search-input" placeholder="Search chats..." 
                         class="w-full p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
@@ -47,8 +53,9 @@
             </div>
         </div>
 
-        <div id="chat-area" class="w-full md:w-2/3 flex flex-col bg-gray-200 hidden md:flex">
-            <div id="chat-header" class="bg-blue-600 text-white p-4 flex items-center">
+        <!-- Chat Area -->
+        <div id="chat-area" class="hidden md:flex w-full md:flex-1 flex-col bg-gray-200">
+            <div id="chat-header" class="bg-blue-600 text-white p-4 flex items-center flex-shrink-0">
                 <button id="back-to-chats" class="md:hidden mr-4">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -60,19 +67,19 @@
                     <div id="chat-contact-status" class="text-xs font-light opacity-80 whitespace-nowrap"></div>
                 </div>
             </div>
-            <div id="messages-container" class="flex-1 p-4 overflow-y-auto custom-scrollbar bg-[url('/static/whatsapp-bg.png')] bg-repeat">
+            <div id="messages-container" class="flex-1 p-4 overflow-y-auto custom-scrollbar bg-gray-50">
             </div>
-            <div class="bg-white p-4 border-t border-gray-200">
+            <div class="bg-white p-4 border-t border-gray-200 flex-shrink-0">
                 <form id="message-form" class="flex items-center">
                     <input type="text" id="message-input" placeholder="Type a message..." 
                             class="flex-1 p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <input type="file" id="image-input" accept="image/*" class="hidden">
-                    <button type="button" id="attach-image" class="ml-2 p-2 text-gray-600 hover:text-blue-600">
+                    <button type="button" id="attach-image" class="ml-2 p-2 text-gray-600 hover:text-blue-600 flex-shrink-0">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 002.828 2.828l6.586-6.586a4 4 0 00-5.656-5.656l-6.586 6.586a6 6 0 008.485 8.485l6.586-6.586" />
                         </svg>
                     </button>
-                    <button type="submit" class="ml-2 p-2 text-blue-600 hover:text-blue-800">
+                    <button type="submit" class="ml-2 p-2 text-blue-600 hover:text-blue-800 flex-shrink-0">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                         </svg>
@@ -86,12 +93,12 @@
         const phoneId = "{{ phone_id }}"; // Populated from Flask template
         let currentWaId = null;
         let currentContactName = null;
-        let lastChatData = null; // Store last fetched chat data for comparison
-        let lastMessageData = null; // Store last fetched message data for comparison
+        let lastChatData = null;
+        let lastMessageData = null;
 
         // Check if user is scrolled to the bottom of the messages container
         function isScrolledToBottom(element) {
-            return element.scrollHeight - element.scrollTop <= element.clientHeight + 10; // Allow 10px tolerance
+            return element.scrollHeight - element.scrollTop <= element.clientHeight + 10;
         }
 
         // Format Contact Status (Last Seen/Online)
@@ -111,7 +118,6 @@
                     return `Last seen today at ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}`;
                 }
                 
-                // Fallback: Full date
                 return `Last seen ${date.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}`;
             }
             return 'Offline';
@@ -123,9 +129,7 @@
                 const response = await fetch(`/api/chats?phone_id=${phoneId}`);
                 const data = await response.json();
                 if (response.ok) {
-                    // Sort chats by last_message_timestamp in descending order
                     data.chats.sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp));
-                    // Only update if data has changed
                     if (JSON.stringify(data.chats) !== JSON.stringify(lastChatData)) {
                         displayChats(data.chats);
                         lastChatData = data.chats;
@@ -154,7 +158,6 @@
                 const previewClass = unreadCount > 0 ? 'text-sm text-black font-medium truncate' : 'text-sm text-gray-600 truncate';
                 const chatElement = document.createElement('div');
                 
-                // Highlight the active chat
                 chatElement.className = `p-3 border-b border-gray-200 hover:bg-gray-100 cursor-pointer ${currentWaId === chat.wa_id ? 'bg-gray-200' : ''}`;
                 
                 chatElement.innerHTML = `
@@ -202,21 +205,27 @@
             document.getElementById('chat-contact-status').textContent = isPolling ? document.getElementById('chat-contact-status').textContent : 'Loading...';
 
             // Mobile view logic
-            document.getElementById('chat-area').classList.remove('hidden');
-            document.getElementById('chat-list').classList.add('hidden');
-            document.getElementById('chat-list').classList.remove('w-full');
+            const chatArea = document.getElementById('chat-area');
+            const chatList = document.getElementById('chat-list');
+            
+            if (window.innerWidth < 768) {
+                chatArea.classList.remove('hidden');
+                chatArea.classList.add('flex');
+                chatList.classList.add('hidden');
+            } else {
+                chatArea.classList.remove('hidden');
+                chatArea.classList.add('flex');
+            }
 
             try {
                 const response = await fetch(`/api/chats/${waId}?phone_id=${phoneId}`);
                 const data = await response.json();
                 if (response.ok) {
-                    // Find chat metadata to get last message time
-                    const chatMetadata = lastChatData.find(c => c.wa_id === waId) || {};
+                    const chatMetadata = lastChatData?.find(c => c.wa_id === waId) || {};
                     const lastTimestamp = chatMetadata.last_message_timestamp;
                     const isOnline = !isPolling && Math.random() < 0.3; 
                     document.getElementById('chat-contact-status').textContent = formatContactStatus(lastTimestamp, isOnline);
 
-                    // Only update messages if data has changed or not polling
                     if (JSON.stringify(data.messages) !== JSON.stringify(lastMessageData) || !isPolling) {
                         displayMessages(data.messages);
                         lastMessageData = data.messages;
@@ -226,7 +235,7 @@
                     }
                     if (!isPolling) {
                         await markMessagesAsRead(waId);
-                        fetchChats(); // Refresh chat list after marking read
+                        fetchChats();
                     }
                 } else {
                     console.error('Error fetching messages:', data.message);
@@ -294,7 +303,6 @@
             const messageInput = document.getElementById('message-input');
             const message = messageInput.value.trim();
             if (message && currentWaId && currentContactName) {
-                // Optimistic UI update
                 const tempMessage = {
                     body: message,
                     direction: 'outbound',
@@ -317,7 +325,7 @@
                     const data = await response.json();
                     if (response.ok) {
                         loadMessages(currentWaId, currentContactName);
-                        fetchChats(); // Refresh chat list to move recent chat up
+                        fetchChats();
                     } else {
                         console.error('Error sending message:', data.message);
                     }
@@ -337,10 +345,9 @@
             if (file && currentWaId && currentContactName) {
                 const caption = document.getElementById('message-input').value.trim();
                 
-                // Optimistic UI Update for Image
                 const tempImageMessage = {
                     body: caption || '📷 Image',
-                    image_url: URL.createObjectURL(file), // Use local URL for display
+                    image_url: URL.createObjectURL(file),
                     direction: 'outbound',
                     timestamp: new Date().toISOString(),
                     type: 'image',
@@ -350,7 +357,7 @@
                 displayMessages(tempMessages);
                 const messagesContainer = document.getElementById('messages-container');
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                document.getElementById('message-input').value = ''; // Clear caption input after sending
+                document.getElementById('message-input').value = '';
 
                 const formData = new FormData();
                 formData.append('wa_id', currentWaId);
@@ -368,7 +375,7 @@
                     if (response.ok) {
                         document.getElementById('image-input').value = '';
                         loadMessages(currentWaId, currentContactName);
-                        fetchChats(); // Refresh chat list to move recent chat up
+                        fetchChats();
                     } else {
                         console.error('Error sending image:', data.message);
                     }
@@ -380,14 +387,17 @@
 
         // Back to chats on mobile
         document.getElementById('back-to-chats').addEventListener('click', () => {
-            document.getElementById('chat-area').classList.add('hidden');
-            document.getElementById('chat-list').classList.remove('hidden', 'md:w-1/3');
-            document.getElementById('chat-list').classList.add('w-full');
+            const chatArea = document.getElementById('chat-area');
+            const chatList = document.getElementById('chat-list');
+            
+            chatArea.classList.add('hidden');
+            chatArea.classList.remove('flex');
+            chatList.classList.remove('hidden');
 
-            currentWaId = null; // Clear active chat
+            currentWaId = null;
             currentContactName = null;
-            lastMessageData = null; // Reset message data for fresh load next time
-            fetchChats(); // Refresh on back
+            lastMessageData = null;
+            fetchChats();
         });
 
         // Search functionality
@@ -404,12 +414,23 @@
         // Polling for new chats and messages
         function startPolling() {
             setInterval(async () => {
-                await fetchChats(); // Refresh chat list
+                await fetchChats();
                 if (currentWaId && currentContactName) {
                     await loadMessages(currentWaId, currentContactName, true); 
                 }
-            }, 5000); // Poll every 5 seconds
+            }, 5000);
         }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 768 && currentWaId) {
+                const chatArea = document.getElementById('chat-area');
+                const chatList = document.getElementById('chat-list');
+                chatArea.classList.remove('hidden');
+                chatArea.classList.add('flex');
+                chatList.classList.remove('hidden');
+            }
+        });
 
         // Initialize
         fetchChats();
