@@ -1,0 +1,434 @@
+/* WhatsApp.css - Comprehensive WhatsApp-like Chat Styles */
+
+/* ==================== GLOBAL STYLES ==================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    overflow: hidden;
+    font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+
+/* ==================== CUSTOM SCROLLBAR ==================== */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
+}
+
+/* ==================== CHAT LAYOUT ==================== */
+.chat-container {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Chat List Sidebar */
+#chat-list {
+    width: 100%;
+    background-color: #fff;
+    border-right: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+}
+
+/* Chat Area */
+#chat-area {
+    width: 100%;
+    background-color: #f3f4f6;
+    display: none;
+    flex-direction: column;
+    transition: all 0.3s ease;
+}
+
+/* Desktop Layout */
+@media (min-width: 768px) {
+    #chat-list {
+        width: 380px;
+        max-width: 380px;
+        flex-shrink: 0;
+    }
+    
+    #chat-area {
+        display: flex !important;
+        flex: 1;
+        min-width: 0;
+    }
+}
+
+/* ==================== CHAT ITEM STYLES ==================== */
+.chat-item {
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+.chat-item:hover {
+    background-color: #f9fafb !important;
+}
+
+.chat-item.bg-gray-100 {
+    background-color: #f3f4f6;
+}
+
+.chat-item:active {
+    background-color: #e5e7eb;
+}
+
+/* ==================== MESSAGE BUBBLE STYLES ==================== */
+.chat-bubble {
+    position: relative;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.chat-bubble.sent {
+    background-color: #dcf8c6;
+    border-bottom-right-radius: 2px;
+}
+
+.chat-bubble.received {
+    background-color: #ffffff;
+    border-bottom-left-radius: 2px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Message fade-in animation */
+.message-fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ==================== MESSAGE CONTAINER BACKGROUND ==================== */
+#messages-container {
+    background-color: #e5ddd5;
+    background-image: 
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 10px,
+            rgba(255, 255, 255, 0.03) 10px,
+            rgba(255, 255, 255, 0.03) 20px
+        );
+}
+
+/* ==================== INPUT STYLES ==================== */
+#message-input {
+    resize: none;
+    overflow-y: auto;
+    max-height: 120px;
+    min-height: 42px;
+    transition: all 0.2s ease;
+}
+
+#message-input:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: #25D366;
+}
+
+/* ==================== BUTTON STYLES ==================== */
+button:focus {
+    outline: none;
+}
+
+button:active {
+    transform: scale(0.95);
+}
+
+#attach-image, 
+#message-form button[type="submit"] {
+    transition: all 0.2s ease;
+    border-radius: 50%;
+}
+
+#attach-image:hover,
+#message-form button[type="submit"]:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* ==================== HEADER STYLES ==================== */
+#chat-header {
+    min-height: 60px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.chat-list-header {
+    min-height: 60px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* ==================== EMPTY STATE STYLES ==================== */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 2rem;
+    text-align: center;
+}
+
+/* ==================== SEARCH INPUT ==================== */
+#search-input {
+    transition: all 0.2s ease;
+}
+
+#search-input:focus {
+    box-shadow: 0 0 0 2px rgba(37, 211, 102, 0.2);
+}
+
+/* ==================== DATE SEPARATOR ==================== */
+.date-separator {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* ==================== AVATAR STYLES ==================== */
+.avatar {
+    position: relative;
+    overflow: hidden;
+}
+
+.avatar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 100%);
+    pointer-events: none;
+}
+
+/* ==================== IMAGE MESSAGE STYLES ==================== */
+.message-image-container img {
+    display: block;
+    object-fit: cover;
+}
+
+/* ==================== UNREAD BADGE ==================== */
+.unread-badge {
+    animation: scaleIn 0.2s ease-out;
+}
+
+@keyframes scaleIn {
+    from {
+        transform: scale(0);
+    }
+    to {
+        transform: scale(1);
+    }
+}
+
+/* ==================== TYPING INDICATOR ==================== */
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    background-color: #ffffff;
+    border-radius: 18px;
+    width: fit-content;
+}
+
+.typing-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #90a4ae;
+    animation: typing 1.4s infinite;
+}
+
+.typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.7;
+    }
+    30% {
+        transform: translateY(-10px);
+        opacity: 1;
+    }
+}
+
+/* ==================== MOBILE OPTIMIZATIONS ==================== */
+@media (max-width: 767px) {
+    #chat-list,
+    #chat-area {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    .chat-bubble {
+        max-width: 85% !important;
+    }
+    
+    #back-to-chats {
+        display: flex !important;
+    }
+}
+
+@media (min-width: 768px) {
+    #back-to-chats {
+        display: none !important;
+    }
+}
+
+/* ==================== LOADING STATES ==================== */
+.loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #25D366;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ==================== SELECTION STYLES ==================== */
+::selection {
+    background-color: #b3e5fc;
+    color: #000;
+}
+
+::-moz-selection {
+    background-color: #b3e5fc;
+    color: #000;
+}
+
+/* ==================== FOCUS VISIBLE ==================== */
+*:focus-visible {
+    outline: 2px solid #25D366;
+    outline-offset: 2px;
+}
+
+/* ==================== SMOOTH SCROLLING ==================== */
+html {
+    scroll-behavior: smooth;
+}
+
+/* ==================== NO SELECT FOR UI ELEMENTS ==================== */
+.no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* ==================== HOVER EFFECTS ==================== */
+.hover-scale:hover {
+    transform: scale(1.05);
+}
+
+.hover-shadow:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* ==================== TRANSITION UTILITIES ==================== */
+.transition-all {
+    transition: all 0.3s ease;
+}
+
+.transition-fast {
+    transition: all 0.15s ease;
+}
+
+/* ==================== PLACEHOLDER STYLES ==================== */
+input::placeholder,
+textarea::placeholder {
+    color: #9ca3af;
+}
+
+/* ==================== PRINT STYLES ==================== */
+@media print {
+    #chat-list,
+    #chat-header,
+    #message-form {
+        display: none !important;
+    }
+    
+    #messages-container {
+        height: auto !important;
+        overflow: visible !important;
+    }
+}
+
+/* ==================== ACCESSIBILITY ==================== */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* ==================== HIGH CONTRAST MODE ==================== */
+@media (prefers-contrast: high) {
+    .chat-bubble.sent {
+        border: 2px solid #000;
+    }
+    
+    .chat-bubble.received {
+        border: 2px solid #666;
+    }
+}
+
+/* ==================== REDUCED MOTION ==================== */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

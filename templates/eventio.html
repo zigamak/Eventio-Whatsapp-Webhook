@@ -3,76 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eventio</title>
+    <title>Eventio - WhatsApp Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* Custom scrollbar styling */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-        /* WhatsApp-like chat bubble styles */
-        .chat-bubble {
-            max-width: 70%;
-            word-wrap: break-word;
-        }
-        .chat-bubble.sent {
-            background-color: #DCF8C6;
-        }
-        .chat-bubble.received {
-            background-color: #FFFFFF;
-        }
-    </style>
+    <link rel="stylesheet" href="whatsapp.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📱</text></svg>">
 </head>
-<body class="bg-gray-100 font-sans">
-    <div class="flex h-screen">
-        <div id="chat-list" class="w-full md:w-1/3 bg-white border-r border-gray-200 flex flex-col">
-            <div class="bg-green-600 text-white p-4 flex items-center justify-between">
+<body class="bg-gray-100">
+    <!-- Hidden inputs for JS -->
+    <input type="hidden" id="phone-id-data" value="{{ phone_id }}">
+    <input type="hidden" id="brand-color-data" value="#25D366">
+
+    <div class="chat-container flex h-screen overflow-hidden">
+        <!-- Chat List Sidebar -->
+        <div id="chat-list" class="w-full md:w-96 bg-white border-r border-gray-200 flex flex-col">
+            <!-- Header -->
+            <div class="chat-list-header bg-green-600 text-white p-4 flex items-center justify-between flex-shrink-0">
                 <h1 class="text-xl font-semibold">Eventio</h1>
+                <button class="p-2 hover:bg-green-700 rounded-full transition-colors" title="Menu">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                    </svg>
+                </button>
             </div>
-            <div class="p-2">
-                <input type="text" id="search-input" placeholder="Search chats..." 
-                        class="w-full p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500">
-            </div>
-            <div id="chats-container" class="flex-1 overflow-y-auto custom-scrollbar">
+
+            <!-- Search Bar -->
+            <div class="p-3 bg-white border-b border-gray-200 flex-shrink-0">
+                <div class="relative">
+                    <input type="text" id="search-input" placeholder="Search or start new chat..." 
+                           class="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
+                    <svg class="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
                 </div>
+            </div>
+
+            <!-- Chats Container -->
+            <div id="chats-container" class="flex-1 overflow-y-auto custom-scrollbar bg-white"></div>
         </div>
 
-        <div id="chat-area" class="w-full md:w-2/3 flex flex-col bg-gray-200 hidden md:flex">
-            <div id="chat-header" class="bg-green-600 text-white p-4 flex items-center">
-                <button id="back-to-chats" class="md:hidden mr-4">
+        <!-- Chat Area -->
+        <div id="chat-area" class="hidden md:flex w-full flex-col bg-gray-100">
+            <!-- Chat Header -->
+            <div id="chat-header" class="bg-green-600 text-white p-4 flex items-center flex-shrink-0 shadow-sm">
+                <button id="back-to-chats" class="md:hidden mr-3 p-2 hover:bg-green-700 rounded-full transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
                 <div class="flex-1 min-w-0">
-                    <div id="chat-contact-name" class="text-lg font-semibold truncate"></div>
-                    <div id="chat-contact-phone" class="text-xs font-light opacity-80 whitespace-nowrap"></div>
-                    <div id="chat-contact-status" class="text-xs font-light opacity-80 whitespace-nowrap"></div>
+                    <h2 id="chat-contact-name" class="text-lg font-semibold truncate">Select a chat</h2>
+                    <p id="chat-contact-phone" class="text-xs opacity-80 truncate"></p>
+                    <p id="chat-contact-status" class="text-xs opacity-80"></p>
+                </div>
+                <div class="flex items-center space-x-2 ml-4">
+                    <button class="p-2 hover:bg-green-700 rounded-full transition-colors" title="Search">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </button>
                 </div>
             </div>
-            <div id="messages-container" class="flex-1 p-4 overflow-y-auto custom-scrollbar bg-[url('/static/whatsapp-bg.png')] bg-repeat">
+
+            <!-- Messages Container -->
+            <div id="messages-container" class="flex-1 p-4 overflow-y-auto custom-scrollbar">
+                <div class="flex flex-col items-center justify-center h-full text-gray-500">
+                    <div class="text-center max-w-md">
+                        <svg class="w-32 h-32 mx-auto text-gray-300 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <h2 class="text-2xl font-light text-gray-700 mb-3">Eventio WhatsApp</h2>
+                        <p class="text-gray-500 mb-4">Send and receive messages directly from your browser.</p>
+                        <p class="text-sm text-gray-400">Select a conversation from the left to start chatting.</p>
+                    </div>
                 </div>
-            <div class="bg-white p-4 border-t border-gray-200">
-                <form id="message-form" class="flex items-center">
-                    <input type="text" id="message-input" placeholder="Type a message..." 
-                            class="flex-1 p-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500">
+            </div>
+
+            <!-- Message Input Area -->
+            <div class="bg-gray-50 p-3 border-t border-gray-200 flex-shrink-0">
+                <form id="message-form" class="flex items-end space-x-2">
                     <input type="file" id="image-input" accept="image/*" class="hidden">
-                    <button type="button" id="attach-image" class="ml-2 p-2 text-gray-600 hover:text-green-600">
+                    <button type="button" id="attach-image" 
+                            class="p-3 text-gray-600 hover:text-green-600 hover:bg-gray-100 rounded-full transition-all flex-shrink-0" title="Attach image">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 002.828 2.828l6.586-6.586a4 4 0 00-5.656-5.656l-6.586 6.586a6 6 0 008.485 8.485l6.586-6.586" />
                         </svg>
                     </button>
-                    <button type="submit" class="ml-2 p-2 text-green-600 hover:text-green-800">
+                    <div class="flex-1 relative">
+                        <textarea id="message-input" placeholder="Type a message..." 
+                                  class="w-full px-4 py-2 pr-10 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                                  rows="1" style="min-height: 42px; max-height: 120px;"></textarea>
+                    </div>
+                    <button type="submit" 
+                            class="p-3 bg-green-500 text-white rounded-full hover:bg-green-600 transition-all flex-shrink-0 shadow-lg hover:shadow-xl" title="Send message">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                         </svg>
@@ -82,350 +104,6 @@
         </div>
     </div>
 
-    <script>
-        const phoneId = "{{ phone_id }}"; // Populated from Flask template
-        let currentWaId = null;
-        let currentContactName = null;
-        let lastChatData = null; // Store last fetched chat data for comparison
-        let lastMessageData = null; // Store last fetched message data for comparison
-
-        // Check if user is scrolled to the bottom of the messages container
-        function isScrolledToBottom(element) {
-            return element.scrollHeight - element.scrollTop <= element.clientHeight + 10; // Allow 10px tolerance
-        }
-
-        // --- NEW: Format Contact Status (Last Seen/Online) ---
-        function formatContactStatus(lastTimestamp, isOnline) {
-            if (isOnline) {
-                return 'Online';
-            }
-            if (lastTimestamp) {
-                const date = new Date(lastTimestamp);
-                const now = new Date();
-                const diffMs = now - date;
-                const diffMins = Math.round(diffMs / (1000 * 60));
-
-                if (diffMins < 1) return 'Active now';
-                if (diffMins < 60) return `Last seen ${diffMins} minutes ago`;
-                if (diffMins < (24 * 60)) {
-                    return `Last seen today at ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}`;
-                }
-                
-                // Fallback: Full date
-                return `Last seen ${date.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}`;
-            }
-            return 'Offline';
-        }
-
-        // Fetch chats
-        async function fetchChats() {
-            try {
-                const response = await fetch(`/api/chats?phone_id=${phoneId}`);
-                const data = await response.json();
-                if (response.ok) {
-                    // Sort chats by last_message_timestamp in descending order
-                    data.chats.sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp));
-                    // Only update if data has changed
-                    if (JSON.stringify(data.chats) !== JSON.stringify(lastChatData)) {
-                        displayChats(data.chats);
-                        lastChatData = data.chats;
-                    }
-                } else {
-                    console.error('Error fetching chats:', data.message);
-                }
-            } catch (error) {
-                console.error('Error fetching chats:', error);
-            }
-        }
-
-        // Display chats in the sidebar
-        function displayChats(chats) {
-            const chatsContainer = document.getElementById('chats-container');
-            chatsContainer.innerHTML = '';
-            chats.forEach(chat => {
-                const lastMessageTime = chat.last_message_timestamp 
-                    ? new Date(chat.last_message_timestamp).toLocaleTimeString('en-US', { 
-                        hour: 'numeric', minute: 'numeric', hour12: true 
-                    }) 
-                    : '';
-                const unreadCount = chat.unread_count || 0;
-                const lastBody = chat.last_body ? chat.last_body.substring(0, 50) + (chat.last_body.length > 50 ? '...' : '') : 'No messages';
-                const nameClass = unreadCount > 0 ? 'font-bold text-black' : 'font-semibold text-gray-800';
-                const previewClass = unreadCount > 0 ? 'text-sm text-black font-medium truncate' : 'text-sm text-gray-600 truncate';
-                const chatElement = document.createElement('div');
-                
-                // Highlight the active chat
-                chatElement.className = `p-3 border-b border-gray-200 hover:bg-gray-100 cursor-pointer ${currentWaId === chat.wa_id ? 'bg-gray-200' : ''}`;
-                
-                chatElement.innerHTML = `
-                    <div class="flex items-start">
-                        <div class="w-12 h-12 bg-gray-300 rounded-full mr-3 flex-shrink-0 flex items-center justify-center text-xl font-bold text-white">${chat.name ? chat.name[0] : '#'}</div>
-                        <div class="flex-1 min-w-0">
-                            <div class="flex justify-between items-baseline">
-                                <div class="${nameClass} truncate">${chat.name || 'Unknown Contact'}</div>
-                                <div class="text-xs text-gray-500 ml-2 flex-shrink-0">${lastMessageTime}</div>
-                            </div>
-                            <div class="text-xs text-gray-500">${chat.wa_id}</div>
-                            <div class="flex justify-between items-center mt-1">
-                                <div class="${previewClass} flex-1 min-w-0">${lastBody}</div>
-                                ${unreadCount > 0 ? `<div class="bg-green-500 text-white text-xs px-2 py-0.5 rounded-full ml-2 mt-1 min-w-[20px] text-center">${unreadCount}</div>` : ''}
-                            </div>
-                        </div>
-                    </div>
-                `;
-                chatElement.addEventListener('click', () => loadMessages(chat.wa_id, chat.name));
-                chatsContainer.appendChild(chatElement);
-            });
-        }
-
-        // Fetch messages for a specific chat
-        async function loadMessages(waId, contactName, isPolling = false) {
-            const messagesContainer = document.getElementById('messages-container');
-            const wasScrolledToBottom = isScrolledToBottom(messagesContainer);
-
-            currentWaId = waId;
-            currentContactName = contactName || waId; 
-
-            // Highlight the active chat in the list
-            document.querySelectorAll('#chats-container > div').forEach(el => {
-                const waIdInEl = el.querySelector('.text-xs.text-gray-500').textContent.trim();
-                if (waIdInEl === waId) {
-                    el.classList.add('bg-gray-200');
-                } else {
-                    el.classList.remove('bg-gray-200');
-                }
-            });
-
-            // Set chat header details
-            document.getElementById('chat-contact-name').textContent = currentContactName;
-            
-            // **UPDATE 1: Set Phone Number**
-            document.getElementById('chat-contact-phone').textContent = waId; 
-
-            // **UPDATE 2: Set Status/Last Seen (Placeholder/Simulation)**
-            // Placeholder for status (will be updated with chat details if available in data)
-            document.getElementById('chat-contact-status').textContent = isPolling ? document.getElementById('chat-contact-status').textContent : 'Loading...';
-
-            // Mobile view logic
-            document.getElementById('chat-area').classList.remove('hidden');
-            document.getElementById('chat-list').classList.add('hidden');
-            document.getElementById('chat-list').classList.remove('w-full');
-
-
-            try {
-                const response = await fetch(`/api/chats/${waId}?phone_id=${phoneId}`);
-                const data = await response.json();
-                if (response.ok) {
-                    // Find chat metadata to get last message time
-                    const chatMetadata = lastChatData.find(c => c.wa_id === waId) || {};
-                    const lastTimestamp = chatMetadata.last_message_timestamp;
-                    // Simulating a random 'online' status for a better demo effect
-                    const isOnline = !isPolling && Math.random() < 0.3; 
-                    document.getElementById('chat-contact-status').textContent = formatContactStatus(lastTimestamp, isOnline);
-
-
-                    // Only update messages if data has changed or not polling
-                    if (JSON.stringify(data.messages) !== JSON.stringify(lastMessageData) || !isPolling) {
-                        displayMessages(data.messages);
-                        lastMessageData = data.messages;
-                        // Scroll to bottom only if user was already near the bottom or it's the initial load
-                        if (wasScrolledToBottom || !isPolling) {
-                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                        }
-                    }
-                    if (!isPolling) {
-                        await markMessagesAsRead(waId);
-                        fetchChats(); // Refresh chat list after marking read
-                    }
-                } else {
-                    console.error('Error fetching messages:', data.message);
-                }
-            } catch (error) {
-                console.error('Error fetching messages:', error);
-            }
-        }
-
-        // Display messages in the chat area (kept simplified for the scope)
-        function displayMessages(messages) {
-            const messagesContainer = document.getElementById('messages-container');
-            messagesContainer.innerHTML = '';
-            messages.forEach(msg => {
-                const messageElement = document.createElement('div');
-                const isSent = msg.direction === 'outbound';
-                messageElement.className = `chat-bubble p-3 my-2 rounded-lg ${isSent ? 'sent ml-auto' : 'received mr-auto'} shadow`;
-                
-                let content = '';
-                if (msg.type === 'image' && msg.image_url) {
-                    content = `<img src="${msg.image_url}" alt="Image" class="max-w-full rounded-lg mb-2" style="max-height: 250px;">`;
-                    if (msg.body && msg.body.trim() !== '📷 Image') {
-                        content += `<div>${msg.body.replace('📷 Image', '').trim()}</div>`;
-                    }
-                } else {
-                    content = `<div>${msg.body || (msg.type === 'image' ? '📷 Image' : 'Message content unavailable')}</div>`;
-                }
-                
-                const time = msg.timestamp 
-                    ? new Date(msg.timestamp).toLocaleTimeString('en-US', { 
-                        hour: 'numeric', minute: 'numeric', hour12: true 
-                      }) 
-                    : 'Unknown time';
-                
-                messageElement.innerHTML = `
-                    <div class="flex flex-col">
-                        ${content}
-                        <div class="text-xs text-gray-500 mt-1 ${isSent ? 'text-right' : 'text-left'}">${time}</div>
-                    </div>
-                `;
-                messagesContainer.appendChild(messageElement);
-            });
-        }
-
-        // Mark messages as read
-        async function markMessagesAsRead(waId) {
-            try {
-                const response = await fetch('/api/mark-read', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wa_id: waId, phone_id: phoneId })
-                });
-                const data = await response.json();
-                if (!response.ok) {
-                    console.error('Error marking messages as read:', data.message);
-                }
-            } catch (error) {
-                console.error('Error marking messages as read:', error);
-            }
-        }
-
-        // Send text message
-        document.getElementById('message-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const messageInput = document.getElementById('message-input');
-            const message = messageInput.value.trim();
-            if (message && currentWaId && currentContactName) {
-                // Optimistic UI update
-                const tempMessage = {
-                    body: message,
-                    direction: 'outbound',
-                    timestamp: new Date().toISOString(),
-                    type: 'text',
-                    status: 'pending' 
-                };
-                const tempMessages = lastMessageData ? [...lastMessageData, tempMessage] : [tempMessage];
-                displayMessages(tempMessages);
-                const messagesContainer = document.getElementById('messages-container');
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                messageInput.value = '';
-
-                try {
-                    const response = await fetch('/api/respond', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ wa_id: currentWaId, message, phone_id: phoneId, name: currentContactName })
-                    });
-                    const data = await response.json();
-                    if (response.ok) {
-                        loadMessages(currentWaId, currentContactName);
-                        fetchChats(); // Refresh chat list to move recent chat up
-                    } else {
-                        console.error('Error sending message:', data.message);
-                    }
-                } catch (error) {
-                    console.error('Error sending message:', error);
-                }
-            }
-        });
-
-        // Send image message
-        document.getElementById('attach-image').addEventListener('click', () => {
-            document.getElementById('image-input').click();
-        });
-
-        document.getElementById('image-input').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (file && currentWaId && currentContactName) {
-                const caption = document.getElementById('message-input').value.trim();
-                
-                // Optimistic UI Update for Image
-                const tempImageMessage = {
-                    body: caption || '📷 Image',
-                    image_url: URL.createObjectURL(file), // Use local URL for display
-                    direction: 'outbound',
-                    timestamp: new Date().toISOString(),
-                    type: 'image',
-                    status: 'pending' 
-                };
-                const tempMessages = lastMessageData ? [...lastMessageData, tempImageMessage] : [tempImageMessage];
-                displayMessages(tempMessages);
-                const messagesContainer = document.getElementById('messages-container');
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                document.getElementById('message-input').value = ''; // Clear caption input after sending
-
-                const formData = new FormData();
-                formData.append('wa_id', currentWaId);
-                formData.append('phone_id', phoneId);
-                formData.append('image', file);
-                formData.append('caption', caption);
-                formData.append('name', currentContactName);
-
-                try {
-                    const response = await fetch('/api/send-image', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const data = await response.json();
-                    if (response.ok) {
-                        document.getElementById('image-input').value = '';
-                        loadMessages(currentWaId, currentContactName);
-                        fetchChats(); // Refresh chat list to move recent chat up
-                    } else {
-                        console.error('Error sending image:', data.message);
-                    }
-                } catch (error) {
-                    console.error('Error sending image:', error);
-                }
-            }
-        });
-
-        // Back to chats on mobile
-        document.getElementById('back-to-chats').addEventListener('click', () => {
-            document.getElementById('chat-area').classList.add('hidden');
-            // Remove the hidden class on mobile and set w-full
-            document.getElementById('chat-list').classList.remove('hidden', 'md:w-1/3');
-            document.getElementById('chat-list').classList.add('w-full');
-
-            currentWaId = null; // Clear active chat
-            currentContactName = null;
-            lastMessageData = null; // Reset message data for fresh load next time
-            fetchChats(); // Refresh on back
-        });
-
-        // Search functionality
-        document.getElementById('search-input').addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            const chatElements = document.getElementById('chats-container').children;
-            Array.from(chatElements).forEach(chat => {
-                const name = chat.querySelector('[class*="font-bold"], [class*="font-semibold"]').textContent.toLowerCase();
-                // Search by both name and wa_id (phone number)
-                const waId = chat.querySelector('.text-xs.text-gray-500').textContent.toLowerCase(); 
-                chat.style.display = name.includes(searchTerm) || waId.includes(searchTerm) ? '' : 'none';
-            });
-        });
-
-        // Polling for new chats and messages
-        function startPolling() {
-            setInterval(async () => {
-                await fetchChats(); // Refresh chat list
-                if (currentWaId && currentContactName) {
-                    // Pass 'true' for isPolling to avoid marking read unnecessarily and suppress initial scroll
-                    await loadMessages(currentWaId, currentContactName, true); 
-                }
-            }, 5000); // Poll every 5 seconds
-        }
-
-        // Initialize
-        fetchChats();
-        startPolling();
-    </script>
+    <script src="whatsapp.js"></script>
 </body>
 </html>
