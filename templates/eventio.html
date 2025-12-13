@@ -3,98 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eventio - WhatsApp Chat</title>
+    <title>Eventio</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="whatsapp.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📱</text></svg>">
+    <style>
+        /* Custom scrollbar styling */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* WhatsApp-like chat bubble styles */
+        .chat-bubble {
+            max-width: 70%;
+            word-wrap: break-word;
+            animation: fadeIn 0.2s ease-in;
+        }
+        .chat-bubble.sent {
+            background: linear-gradient(135deg, #DCF8C6 0%, #C8E6B8 100%);
+        }
+        .chat-bubble.received {
+            background-color: #FFFFFF;
+            border: 1px solid #e5e7eb;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Smooth transitions */
+        .transition-all {
+            transition: all 0.3s ease;
+        }
+        
+        /* Mobile view classes */
+        @media (max-width: 768px) {
+            .mobile-hidden {
+                display: none !important;
+            }
+            .mobile-show {
+                display: flex !important;
+            }
+        }
+        
+        /* Chat background pattern */
+        .chat-bg {
+            background-color: #e5ddd5;
+            background-image: 
+                repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.05) 35px, rgba(255,255,255,.05) 70px);
+        }
+        
+        /* Online status indicator */
+        .status-online {
+            width: 10px;
+            height: 10px;
+            background-color: #25D366;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Typing indicator */
+        .typing-indicator {
+            display: inline-flex;
+            gap: 4px;
+        }
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background-color: #9ca3af;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+    </style>
 </head>
-<body class="bg-gray-100">
-    <!-- Hidden inputs for JS -->
-    <input type="hidden" id="phone-id-data" value="{{ phone_id }}">
-    <input type="hidden" id="brand-color-data" value="#25D366">
-
-    <div class="chat-container flex h-screen overflow-hidden">
+<body class="bg-gray-100 font-sans">
+    <div class="flex h-screen overflow-hidden">
         <!-- Chat List Sidebar -->
-        <div id="chat-list" class="w-full md:w-96 bg-white border-r border-gray-200 flex flex-col">
+        <div id="chat-list" class="w-full md:w-1/3 bg-white border-r border-gray-300 flex flex-col">
             <!-- Header -->
-            <div class="chat-list-header bg-green-600 text-white p-4 flex items-center justify-between flex-shrink-0">
-                <h1 class="text-xl font-semibold">Eventio</h1>
-                <button class="p-2 hover:bg-green-700 rounded-full transition-colors" title="Menu">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                    </svg>
-                </button>
+            <div class="bg-[#452869] text-white p-4 flex items-center justify-between shadow-md">
+                <h1 class="text-xl font-semibold tracking-wide">Eventio</h1>
+                <div class="flex gap-3">
+                    <button class="hover:bg-[#5a3780] p-2 rounded-full transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                    </button>
+                    <button class="hover:bg-[#5a3780] p-2 rounded-full transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                        </svg>
+                    </button>
+                </div>
             </div>
-
-            <!-- Search Bar -->
-            <div class="p-3 bg-white border-b border-gray-200 flex-shrink-0">
+            
+            <!-- Search -->
+            <div class="p-3 bg-gray-50 border-b border-gray-200">
                 <div class="relative">
                     <input type="text" id="search-input" placeholder="Search or start new chat..." 
-                           class="w-full pl-10 pr-4 py-2 bg-gray-100 rounded-lg border-0 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all">
-                    <svg class="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="w-full pl-10 pr-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#452869] focus:border-transparent transition">
+                    <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                 </div>
             </div>
-
+            
             <!-- Chats Container -->
-            <div id="chats-container" class="flex-1 overflow-y-auto custom-scrollbar bg-white"></div>
+            <div id="chats-container" class="flex-1 overflow-y-auto custom-scrollbar">
+                <div class="flex items-center justify-center h-full text-gray-400">
+                    <div class="text-center">
+                        <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <p>Loading chats...</p>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Chat Area -->
-        <div id="chat-area" class="hidden md:flex w-full flex-col bg-gray-100">
+        <div id="chat-area" class="w-full md:w-2/3 flex-col bg-gray-200 mobile-hidden">
             <!-- Chat Header -->
-            <div id="chat-header" class="bg-green-600 text-white p-4 flex items-center flex-shrink-0 shadow-sm">
-                <button id="back-to-chats" class="md:hidden mr-3 p-2 hover:bg-green-700 rounded-full transition-colors">
+            <div id="chat-header" class="bg-[#452869] text-white p-4 flex items-center shadow-md">
+                <button id="back-to-chats" class="md:hidden mr-3 hover:bg-[#5a3780] p-2 rounded-full transition">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
-                <div class="flex-1 min-w-0">
-                    <h2 id="chat-contact-name" class="text-lg font-semibold truncate">Select a chat</h2>
-                    <p id="chat-contact-phone" class="text-xs opacity-80 truncate"></p>
-                    <p id="chat-contact-status" class="text-xs opacity-80"></p>
+                <div class="w-10 h-10 bg-white/20 rounded-full mr-3 flex-shrink-0 flex items-center justify-center text-lg font-bold" id="chat-avatar">
+                    #
                 </div>
-                <div class="flex items-center space-x-2 ml-4">
-                    <button class="p-2 hover:bg-green-700 rounded-full transition-colors" title="Search">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="flex-1 min-w-0">
+                    <div id="chat-contact-name" class="text-lg font-semibold truncate">Select a chat</div>
+                    <div class="flex items-center text-xs opacity-90">
+                        <span id="chat-contact-status" class="truncate">Start messaging</span>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button class="hover:bg-[#5a3780] p-2 rounded-full transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </button>
+                    <button class="hover:bg-[#5a3780] p-2 rounded-full transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                         </svg>
                     </button>
                 </div>
             </div>
-
+            
             <!-- Messages Container -->
-            <div id="messages-container" class="flex-1 p-4 overflow-y-auto custom-scrollbar">
-                <div class="flex flex-col items-center justify-center h-full text-gray-500">
-                    <div class="text-center max-w-md">
-                        <svg class="w-32 h-32 mx-auto text-gray-300 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            <div id="messages-container" class="flex-1 p-4 overflow-y-auto custom-scrollbar chat-bg">
+                <div class="flex items-center justify-center h-full text-gray-500">
+                    <div class="text-center">
+                        <svg class="w-20 h-20 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         </svg>
-                        <h2 class="text-2xl font-light text-gray-700 mb-3">Eventio WhatsApp</h2>
-                        <p class="text-gray-500 mb-4">Send and receive messages directly from your browser.</p>
-                        <p class="text-sm text-gray-400">Select a conversation from the left to start chatting.</p>
+                        <p class="text-lg font-medium">Select a chat to start messaging</p>
                     </div>
                 </div>
             </div>
-
-            <!-- Message Input Area -->
-            <div class="bg-gray-50 p-3 border-t border-gray-200 flex-shrink-0">
-                <form id="message-form" class="flex items-end space-x-2">
+            
+            <!-- Message Input -->
+            <div class="bg-gray-100 p-4 border-t border-gray-300">
+                <form id="message-form" class="flex items-end gap-2">
+                    <button type="button" class="p-3 text-gray-600 hover:text-[#452869] transition rounded-full hover:bg-gray-200">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </button>
+                    <input type="text" id="message-input" placeholder="Type a message..." 
+                        class="flex-1 p-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#452869] focus:border-transparent transition">
                     <input type="file" id="image-input" accept="image/*" class="hidden">
-                    <button type="button" id="attach-image" 
-                            class="p-3 text-gray-600 hover:text-green-600 hover:bg-gray-100 rounded-full transition-all flex-shrink-0" title="Attach image">
+                    <button type="button" id="attach-image" class="p-3 text-gray-600 hover:text-[#452869] transition rounded-full hover:bg-gray-200">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 002.828 2.828l6.586-6.586a4 4 0 00-5.656-5.656l-6.586 6.586a6 6 0 008.485 8.485l6.586-6.586" />
                         </svg>
                     </button>
-                    <div class="flex-1 relative">
-                        <textarea id="message-input" placeholder="Type a message..." 
-                                  class="w-full px-4 py-2 pr-10 bg-white rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-                                  rows="1" style="min-height: 42px; max-height: 120px;"></textarea>
-                    </div>
-                    <button type="submit" 
-                            class="p-3 bg-green-500 text-white rounded-full hover:bg-green-600 transition-all flex-shrink-0 shadow-lg hover:shadow-xl" title="Send message">
+                    <button type="submit" class="p-3 bg-[#452869] text-white hover:bg-[#5a3780] transition rounded-full shadow-lg">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                         </svg>
@@ -104,6 +214,464 @@
         </div>
     </div>
 
-    <script src="whatsapp.js"></script>
+    <script>
+        const phoneId = "{{ phone_id }}";
+        let currentWaId = null;
+        let currentContactName = null;
+        let lastChatData = null;
+        let lastMessageData = null;
+
+        function isScrolledToBottom(element) {
+            return element.scrollHeight - element.scrollTop <= element.clientHeight + 10;
+        }
+
+        function formatContactStatus(lastTimestamp, isOnline) {
+            if (isOnline) {
+                return '<span class="status-online"></span>Online';
+            }
+            if (lastTimestamp) {
+                const date = new Date(lastTimestamp);
+                const now = new Date();
+                const diffMs = now - date;
+                const diffMins = Math.round(diffMs / (1000 * 60));
+
+                if (diffMins < 1) return 'Active now';
+                if (diffMins < 60) return `Last seen ${diffMins} minutes ago`;
+                if (diffMins < (24 * 60)) {
+                    return `Last seen today at ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}`;
+                }
+                return `Last seen ${date.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}`;
+            }
+            return 'Offline';
+        }
+
+        async function fetchChats() {
+            try {
+                const response = await fetch(`/api/chats?phone_id=${phoneId}`);
+                
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({ message: 'Unknown error' }));
+                    console.error('Error fetching chats:', data.message);
+                    
+                    // Show error state if no chats loaded yet
+                    if (!lastChatData || lastChatData.length === 0) {
+                        const chatsContainer = document.getElementById('chats-container');
+                        chatsContainer.innerHTML = `
+                            <div class="flex items-center justify-center h-full text-gray-400">
+                                <div class="text-center p-8">
+                                    <svg class="w-16 h-16 mx-auto mb-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <p class="font-medium text-gray-600">Unable to load chats</p>
+                                    <p class="text-sm mt-2">Please check your connection</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    return;
+                }
+                
+                const data = await response.json();
+                if (data.chats) {
+                    data.chats.sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp));
+                    if (JSON.stringify(data.chats) !== JSON.stringify(lastChatData)) {
+                        displayChats(data.chats);
+                        lastChatData = data.chats;
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching chats:', error);
+                
+                // Show error state only if no chats loaded yet
+                if (!lastChatData || lastChatData.length === 0) {
+                    const chatsContainer = document.getElementById('chats-container');
+                    chatsContainer.innerHTML = `
+                        <div class="flex items-center justify-center h-full text-gray-400">
+                            <div class="text-center p-8">
+                                <svg class="w-16 h-16 mx-auto mb-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <p class="font-medium text-gray-600">Connection error</p>
+                                <p class="text-sm mt-2">Retrying...</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        function displayChats(chats) {
+            const chatsContainer = document.getElementById('chats-container');
+            chatsContainer.innerHTML = '';
+            
+            if (chats.length === 0) {
+                chatsContainer.innerHTML = `
+                    <div class="flex items-center justify-center h-full text-gray-400">
+                        <div class="text-center p-8">
+                            <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <p>No chats yet</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            chats.forEach(chat => {
+                const lastMessageTime = chat.last_message_timestamp 
+                    ? new Date(chat.last_message_timestamp).toLocaleTimeString('en-US', { 
+                        hour: 'numeric', minute: 'numeric', hour12: true 
+                    }) 
+                    : '';
+                const unreadCount = chat.unread_count || 0;
+                const lastBody = chat.last_body ? chat.last_body.substring(0, 50) + (chat.last_body.length > 50 ? '...' : '') : 'No messages';
+                const nameClass = unreadCount > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-800';
+                const previewClass = unreadCount > 0 ? 'text-sm text-gray-900 font-medium' : 'text-sm text-gray-600';
+                const chatElement = document.createElement('div');
+                
+                const isActive = currentWaId === chat.wa_id;
+                chatElement.className = `p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-all ${isActive ? 'bg-gray-100' : ''}`;
+                
+                const initial = chat.name ? chat.name[0].toUpperCase() : '#';
+                
+                chatElement.innerHTML = `
+                    <div class="flex items-start gap-3">
+                        <div class="w-12 h-12 bg-[#452869] rounded-full flex-shrink-0 flex items-center justify-center text-xl font-bold text-white shadow">
+                            ${initial}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-baseline mb-1">
+                                <div class="${nameClass} truncate">${chat.name || 'Unknown Contact'}</div>
+                                <div class="text-xs ${unreadCount > 0 ? 'text-[#452869] font-semibold' : 'text-gray-500'} ml-2 flex-shrink-0">${lastMessageTime}</div>
+                            </div>
+                            <div class="${previewClass} truncate mb-1">${lastBody}</div>
+                            ${unreadCount > 0 ? `<div class="inline-block bg-[#452869] text-white text-xs px-2 py-0.5 rounded-full min-w-[20px] text-center">${unreadCount}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+                
+                chatElement.addEventListener('click', () => {
+                    loadMessages(chat.wa_id, chat.name);
+                });
+                
+                chatsContainer.appendChild(chatElement);
+            });
+        }
+
+        async function loadMessages(waId, contactName, isPolling = false) {
+            const messagesContainer = document.getElementById('messages-container');
+            const wasScrolledToBottom = isScrolledToBottom(messagesContainer);
+
+            currentWaId = waId;
+            currentContactName = contactName || waId;
+
+            // Update UI for mobile - Show chat area, hide chat list
+            const chatArea = document.getElementById('chat-area');
+            const chatList = document.getElementById('chat-list');
+            
+            // Remove mobile-hidden class and add mobile-show
+            chatArea.classList.remove('mobile-hidden');
+            chatArea.classList.add('flex');
+            
+            // On mobile, hide the chat list
+            if (window.innerWidth < 768) {
+                chatList.classList.add('mobile-hidden');
+            }
+
+            // Update active chat highlight
+            document.querySelectorAll('#chats-container > div').forEach(el => {
+                if (el.querySelector('.truncate')) {
+                    const clickHandler = el.onclick || (() => {});
+                    const waIdMatch = clickHandler.toString().match(/loadMessages\(['"]([^'"]+)['"]/);
+                    if (waIdMatch && waIdMatch[1] === waId) {
+                        el.classList.add('bg-gray-100');
+                    } else {
+                        el.classList.remove('bg-gray-100');
+                    }
+                }
+            });
+
+            // Set chat header details
+            const initial = currentContactName ? currentContactName[0].toUpperCase() : '#';
+            document.getElementById('chat-avatar').textContent = initial;
+            document.getElementById('chat-contact-name').textContent = currentContactName;
+            document.getElementById('chat-contact-status').innerHTML = isPolling ? document.getElementById('chat-contact-status').innerHTML : 'Loading...';
+
+            try {
+                const response = await fetch(`/api/chats/${waId}?phone_id=${phoneId}`);
+                
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({ message: 'Unknown error' }));
+                    console.error('Error fetching messages:', data.message);
+                    
+                    // Show error state only if not polling
+                    if (!isPolling) {
+                        messagesContainer.innerHTML = `
+                            <div class="flex items-center justify-center h-full text-gray-500">
+                                <div class="text-center">
+                                    <svg class="w-16 h-16 mx-auto mb-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <p class="text-lg font-medium text-gray-600">Unable to load messages</p>
+                                    <p class="text-sm mt-2">Please try again later</p>
+                                </div>
+                            </div>
+                        `;
+                        document.getElementById('chat-contact-status').innerHTML = 'Error loading chat';
+                    }
+                    return;
+                }
+                
+                const data = await response.json();
+                const chatMetadata = lastChatData ? lastChatData.find(c => c.wa_id === waId) : null;
+                const lastTimestamp = chatMetadata ? chatMetadata.last_message_timestamp : null;
+                const isOnline = !isPolling && Math.random() < 0.3;
+                document.getElementById('chat-contact-status').innerHTML = formatContactStatus(lastTimestamp, isOnline);
+
+                if (data.messages && (JSON.stringify(data.messages) !== JSON.stringify(lastMessageData) || !isPolling)) {
+                    displayMessages(data.messages);
+                    lastMessageData = data.messages;
+                    if (wasScrolledToBottom || !isPolling) {
+                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                    }
+                }
+                
+                if (!isPolling) {
+                    await markMessagesAsRead(waId);
+                    fetchChats();
+                }
+            } catch (error) {
+                console.error('Error fetching messages:', error);
+                
+                // Show error state only if not polling
+                if (!isPolling) {
+                    messagesContainer.innerHTML = `
+                        <div class="flex items-center justify-center h-full text-gray-500">
+                            <div class="text-center">
+                                <svg class="w-16 h-16 mx-auto mb-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <p class="text-lg font-medium text-gray-600">Connection error</p>
+                                <p class="text-sm mt-2">Retrying...</p>
+                            </div>
+                        </div>
+                    `;
+                    document.getElementById('chat-contact-status').innerHTML = 'Offline';
+                }
+            }
+        }
+
+        function displayMessages(messages) {
+            const messagesContainer = document.getElementById('messages-container');
+            messagesContainer.innerHTML = '';
+            
+            if (!messages || messages.length === 0) {
+                messagesContainer.innerHTML = `
+                    <div class="flex items-center justify-center h-full text-gray-500">
+                        <div class="text-center">
+                            <p class="text-lg">No messages yet</p>
+                            <p class="text-sm mt-2">Start the conversation!</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            messages.forEach(msg => {
+                const messageElement = document.createElement('div');
+                const isSent = msg.direction === 'outbound';
+                messageElement.className = `chat-bubble p-3 my-2 rounded-lg ${isSent ? 'sent ml-auto' : 'received mr-auto'} shadow-sm`;
+                
+                let content = '';
+                if (msg.type === 'image' && msg.image_url) {
+                    // Handle image URL errors gracefully
+                    content = `
+                        <img src="${msg.image_url}" 
+                             alt="Image" 
+                             class="max-w-full rounded-lg mb-2" 
+                             style="max-height: 250px;"
+                             onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23999%22 stroke-width=%222%22%3E%3Crect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22/%3E%3Ccircle cx=%228.5%22 cy=%228.5%22 r=%221.5%22/%3E%3Cpath d=%22M21 15l-5-5L5 21%22/%3E%3C/svg%3E'; this.style.opacity='0.3';">
+                    `;
+                    if (msg.body && msg.body.trim() !== '📷 Image') {
+                        content += `<div class="mt-2">${escapeHtml(msg.body.replace('📷 Image', '').trim())}</div>`;
+                    }
+                } else {
+                    const bodyText = msg.body || (msg.type === 'image' ? '📷 Image' : 'Message content unavailable');
+                    content = `<div>${escapeHtml(bodyText)}</div>`;
+                }
+                
+                const time = msg.timestamp 
+                    ? new Date(msg.timestamp).toLocaleTimeString('en-US', { 
+                        hour: 'numeric', minute: 'numeric', hour12: true 
+                      }) 
+                    : '';
+                
+                messageElement.innerHTML = `
+                    <div class="flex flex-col">
+                        ${content}
+                        <div class="text-xs ${isSent ? 'text-gray-600' : 'text-gray-500'} mt-1 ${isSent ? 'text-right' : 'text-left'}">${time}</div>
+                    </div>
+                `;
+                messagesContainer.appendChild(messageElement);
+            });
+        }
+
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function markMessagesAsRead(waId) {
+            try {
+                const response = await fetch('/api/mark-read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ wa_id: waId, phone_id: phoneId })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    console.error('Error marking messages as read:', data.message);
+                }
+            } catch (error) {
+                console.error('Error marking messages as read:', error);
+            }
+        }
+
+        document.getElementById('message-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const messageInput = document.getElementById('message-input');
+            const message = messageInput.value.trim();
+            
+            if (message && currentWaId && currentContactName) {
+                const tempMessage = {
+                    body: message,
+                    direction: 'outbound',
+                    timestamp: new Date().toISOString(),
+                    type: 'text',
+                    status: 'pending'
+                };
+                const tempMessages = lastMessageData ? [...lastMessageData, tempMessage] : [tempMessage];
+                displayMessages(tempMessages);
+                
+                const messagesContainer = document.getElementById('messages-container');
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                messageInput.value = '';
+
+                try {
+                    const response = await fetch('/api/respond', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ wa_id: currentWaId, message, phone_id: phoneId, name: currentContactName })
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        loadMessages(currentWaId, currentContactName);
+                        fetchChats();
+                    } else {
+                        console.error('Error sending message:', data.message);
+                    }
+                } catch (error) {
+                    console.error('Error sending message:', error);
+                }
+            }
+        });
+
+        document.getElementById('attach-image').addEventListener('click', () => {
+            document.getElementById('image-input').click();
+        });
+
+        document.getElementById('image-input').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file && currentWaId && currentContactName) {
+                const caption = document.getElementById('message-input').value.trim();
+                
+                const tempImageMessage = {
+                    body: caption || '📷 Image',
+                    image_url: URL.createObjectURL(file),
+                    direction: 'outbound',
+                    timestamp: new Date().toISOString(),
+                    type: 'image',
+                    status: 'pending'
+                };
+                const tempMessages = lastMessageData ? [...lastMessageData, tempImageMessage] : [tempImageMessage];
+                displayMessages(tempMessages);
+                
+                const messagesContainer = document.getElementById('messages-container');
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                document.getElementById('message-input').value = '';
+
+                const formData = new FormData();
+                formData.append('wa_id', currentWaId);
+                formData.append('phone_id', phoneId);
+                formData.append('image', file);
+                formData.append('caption', caption);
+                formData.append('name', currentContactName);
+
+                try {
+                    const response = await fetch('/api/send-image', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        document.getElementById('image-input').value = '';
+                        loadMessages(currentWaId, currentContactName);
+                        fetchChats();
+                    } else {
+                        console.error('Error sending image:', data.message);
+                    }
+                } catch (error) {
+                    console.error('Error sending image:', error);
+                }
+            }
+        });
+
+        document.getElementById('back-to-chats').addEventListener('click', () => {
+            const chatArea = document.getElementById('chat-area');
+            const chatList = document.getElementById('chat-list');
+            
+            // Hide chat area on mobile
+            chatArea.classList.add('mobile-hidden');
+            chatArea.classList.remove('flex');
+            
+            // Show chat list
+            chatList.classList.remove('mobile-hidden');
+
+            currentWaId = null;
+            currentContactName = null;
+            lastMessageData = null;
+            fetchChats();
+        });
+
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const chatElements = document.getElementById('chats-container').children;
+            Array.from(chatElements).forEach(chat => {
+                const nameEl = chat.querySelector('[class*="font-bold"], [class*="font-semibold"]');
+                if (nameEl) {
+                    const name = nameEl.textContent.toLowerCase();
+                    const preview = chat.querySelector('[class*="text-sm"]');
+                    const previewText = preview ? preview.textContent.toLowerCase() : '';
+                    chat.style.display = name.includes(searchTerm) || previewText.includes(searchTerm) ? '' : 'none';
+                }
+            });
+        });
+
+        function startPolling() {
+            setInterval(async () => {
+                await fetchChats();
+                if (currentWaId && currentContactName) {
+                    await loadMessages(currentWaId, currentContactName, true);
+                }
+            }, 5000);
+        }
+
+        // Initialize
+        fetchChats();
+        startPolling();
+    </script>
 </body>
 </html>
