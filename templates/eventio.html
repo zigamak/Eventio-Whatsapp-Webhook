@@ -158,6 +158,7 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <div id="chat-contact-name" class="text-lg font-semibold truncate">Select a chat</div>
+                    <div id="chat-contact-phone" class="text-xs font-light opacity-80 truncate"></div>
                     <div class="flex items-center text-xs opacity-90">
                         <span id="chat-contact-status" class="truncate">Start messaging</span>
                     </div>
@@ -221,6 +222,14 @@
         let lastChatData = null;
         let lastMessageData = null;
 
+        // Debug logging
+        console.log("=".repeat(60));
+        console.log("🚀 Eventio WhatsApp Interface Initialized");
+        console.log("=".repeat(60));
+        console.log("📱 Phone ID:", phoneId);
+        console.log("🌐 API Base:", window.location.origin);
+        console.log("=".repeat(60));
+
         function isScrolledToBottom(element) {
             return element.scrollHeight - element.scrollTop <= element.clientHeight + 10;
         }
@@ -251,9 +260,8 @@
                 
                 if (!response.ok) {
                     const data = await response.json().catch(() => ({ message: 'Unknown error' }));
-                    console.error('Error fetching chats:', data.message);
+                    console.error('❌ Error fetching chats:', data.message);
                     
-                    // Show error state if no chats loaded yet
                     if (!lastChatData || lastChatData.length === 0) {
                         const chatsContainer = document.getElementById('chats-container');
                         chatsContainer.innerHTML = `
@@ -280,9 +288,8 @@
                     }
                 }
             } catch (error) {
-                console.error('Error fetching chats:', error);
+                console.error('❌ Error fetching chats:', error);
                 
-                // Show error state only if no chats loaded yet
                 if (!lastChatData || lastChatData.length === 0) {
                     const chatsContainer = document.getElementById('chats-container');
                     chatsContainer.innerHTML = `
@@ -345,6 +352,7 @@
                                 <div class="${nameClass} truncate">${chat.name || 'Unknown Contact'}</div>
                                 <div class="text-xs ${unreadCount > 0 ? 'text-[#452869] font-semibold' : 'text-gray-500'} ml-2 flex-shrink-0">${lastMessageTime}</div>
                             </div>
+                            <div class="text-xs text-gray-500 mb-1 truncate">+${chat.wa_id}</div>
                             <div class="${previewClass} truncate mb-1">${lastBody}</div>
                             ${unreadCount > 0 ? `<div class="inline-block bg-[#452869] text-white text-xs px-2 py-0.5 rounded-full min-w-[20px] text-center">${unreadCount}</div>` : ''}
                         </div>
@@ -366,25 +374,22 @@
             currentWaId = waId;
             currentContactName = contactName || waId;
 
-            // Update UI for mobile - Show chat area, hide chat list
+            console.log("📖 Loading messages for:", waId, contactName);
+
             const chatArea = document.getElementById('chat-area');
             const chatList = document.getElementById('chat-list');
             
-            // Remove mobile-hidden class and add mobile-show
             chatArea.classList.remove('mobile-hidden');
             chatArea.classList.add('flex');
             
-            // On mobile, hide the chat list
             if (window.innerWidth < 768) {
                 chatList.classList.add('mobile-hidden');
             }
 
-            // Update active chat highlight
             document.querySelectorAll('#chats-container > div').forEach(el => {
                 if (el.querySelector('.truncate')) {
-                    const clickHandler = el.onclick || (() => {});
-                    const waIdMatch = clickHandler.toString().match(/loadMessages\(['"]([^'"]+)['"]/);
-                    if (waIdMatch && waIdMatch[1] === waId) {
+                    const nameEl = el.querySelector('[class*="font-bold"], [class*="font-semibold"]');
+                    if (nameEl && nameEl.textContent.includes(contactName)) {
                         el.classList.add('bg-gray-100');
                     } else {
                         el.classList.remove('bg-gray-100');
@@ -392,10 +397,10 @@
                 }
             });
 
-            // Set chat header details
             const initial = currentContactName ? currentContactName[0].toUpperCase() : '#';
             document.getElementById('chat-avatar').textContent = initial;
             document.getElementById('chat-contact-name').textContent = currentContactName;
+            document.getElementById('chat-contact-phone').textContent = `+${waId}`;
             document.getElementById('chat-contact-status').innerHTML = isPolling ? document.getElementById('chat-contact-status').innerHTML : 'Loading...';
 
             try {
@@ -403,9 +408,8 @@
                 
                 if (!response.ok) {
                     const data = await response.json().catch(() => ({ message: 'Unknown error' }));
-                    console.error('Error fetching messages:', data.message);
+                    console.error('❌ Error fetching messages:', data.message);
                     
-                    // Show error state only if not polling
                     if (!isPolling) {
                         messagesContainer.innerHTML = `
                             <div class="flex items-center justify-center h-full text-gray-500">
@@ -442,9 +446,8 @@
                     fetchChats();
                 }
             } catch (error) {
-                console.error('Error fetching messages:', error);
+                console.error('❌ Error fetching messages:', error);
                 
-                // Show error state only if not polling
                 if (!isPolling) {
                     messagesContainer.innerHTML = `
                         <div class="flex items-center justify-center h-full text-gray-500">
@@ -485,7 +488,6 @@
                 
                 let content = '';
                 if (msg.type === 'image' && msg.image_url) {
-                    // Handle image URL errors gracefully
                     content = `
                         <img src="${msg.image_url}" 
                              alt="Image" 
@@ -517,7 +519,6 @@
             });
         }
 
-        // Helper function to escape HTML
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
@@ -533,10 +534,10 @@
                 });
                 const data = await response.json();
                 if (!response.ok) {
-                    console.error('Error marking messages as read:', data.message);
+                    console.error('❌ Error marking messages as read:', data.message);
                 }
             } catch (error) {
-                console.error('Error marking messages as read:', error);
+                console.error('❌ Error marking messages as read:', error);
             }
         }
 
@@ -544,6 +545,15 @@
             e.preventDefault();
             const messageInput = document.getElementById('message-input');
             const message = messageInput.value.trim();
+            
+            console.log("=".repeat(60));
+            console.log("📤 SENDING MESSAGE");
+            console.log("=".repeat(60));
+            console.log("📱 Phone ID:", phoneId);
+            console.log("👤 Current WA ID:", currentWaId);
+            console.log("👤 Current Name:", currentContactName);
+            console.log("📝 Message:", message);
+            console.log("=".repeat(60));
             
             if (message && currentWaId && currentContactName) {
                 const tempMessage = {
@@ -561,21 +571,45 @@
                 messageInput.value = '';
 
                 try {
+                    const payload = { 
+                        wa_id: currentWaId, 
+                        message, 
+                        phone_id: phoneId, 
+                        name: currentContactName 
+                    };
+                    
+                    console.log("🚀 Making API request to /api/respond");
+                    console.log("📦 Payload:", payload);
+                    
                     const response = await fetch('/api/respond', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ wa_id: currentWaId, message, phone_id: phoneId, name: currentContactName })
+                        body: JSON.stringify(payload)
                     });
+                    
+                    console.log("📡 Response Status:", response.status);
+                    console.log("📡 Response OK:", response.ok);
+                    
                     const data = await response.json();
+                    console.log("📄 Response Data:", data);
+                    
                     if (response.ok) {
+                        console.log("✅ Message sent successfully!");
                         loadMessages(currentWaId, currentContactName);
                         fetchChats();
                     } else {
-                        console.error('Error sending message:', data.message);
+                        console.error('❌ Error sending message:', data.message);
+                        alert(`Failed to send message: ${data.message}`);
                     }
                 } catch (error) {
-                    console.error('Error sending message:', error);
+                    console.error('❌ Error sending message:', error);
+                    alert(`Error: ${error.message}`);
                 }
+            } else {
+                console.warn("⚠️ Cannot send message - missing data:");
+                console.warn("  - Message:", message ? "✓" : "✗");
+                console.warn("  - WA ID:", currentWaId ? "✓" : "✗");
+                console.warn("  - Name:", currentContactName ? "✓" : "✗");
             }
         });
 
@@ -587,6 +621,8 @@
             const file = e.target.files[0];
             if (file && currentWaId && currentContactName) {
                 const caption = document.getElementById('message-input').value.trim();
+                
+                console.log("📤 Sending image:", file.name);
                 
                 const tempImageMessage = {
                     body: caption || '📷 Image',
@@ -617,14 +653,17 @@
                     });
                     const data = await response.json();
                     if (response.ok) {
+                        console.log("✅ Image sent successfully!");
                         document.getElementById('image-input').value = '';
                         loadMessages(currentWaId, currentContactName);
                         fetchChats();
                     } else {
-                        console.error('Error sending image:', data.message);
+                        console.error('❌ Error sending image:', data.message);
+                        alert(`Failed to send image: ${data.message}`);
                     }
                 } catch (error) {
-                    console.error('Error sending image:', error);
+                    console.error('❌ Error sending image:', error);
+                    alert(`Error: ${error.message}`);
                 }
             }
         });
@@ -633,11 +672,8 @@
             const chatArea = document.getElementById('chat-area');
             const chatList = document.getElementById('chat-list');
             
-            // Hide chat area on mobile
             chatArea.classList.add('mobile-hidden');
             chatArea.classList.remove('flex');
-            
-            // Show chat list
             chatList.classList.remove('mobile-hidden');
 
             currentWaId = null;
@@ -669,9 +705,10 @@
             }, 5000);
         }
 
-        // Initialize
+        console.log("🎬 Initializing app...");
         fetchChats();
         startPolling();
+        console.log("✅ App initialized successfully!");
     </script>
 </body>
 </html>

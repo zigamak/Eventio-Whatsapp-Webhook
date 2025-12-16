@@ -55,7 +55,7 @@ def get_token_for_phone_id(phone_id):
         logger.warning(f"No token found for phone_id {phone_id}, using EVENTIO_ACCESS_TOKEN as fallback")
         token = EVENTIO_ACCESS_TOKEN
     else:
-        logger.debug(f"Selected token for phone_id {phone_id}")
+        logger.debug(f"Selected token for phone_id {phone_id}: {token[:20]}...")
     return token
 
 def save_message(db_manager, message_data, phone_id):
@@ -132,16 +132,67 @@ def send_message(data, phone_id):
     """
     try:
         url = f"https://graph.facebook.com/{VERSION}/{phone_id}/messages"
+        token = get_token_for_phone_id(phone_id)
+        
+        # Comprehensive logging
+        logger.info(f"{'='*60}")
+        logger.info(f"SENDING MESSAGE TO WHATSAPP API")
+        logger.info(f"{'='*60}")
+        logger.info(f"URL: {url}")
+        logger.info(f"Phone ID: {phone_id}")
+        logger.info(f"Token (first 30 chars): {token[:30]}..." if token else "Token: None")
+        logger.info(f"Recipient: {data.get('to')}")
+        logger.info(f"Message Type: {data.get('type')}")
+        logger.info(f"Full Payload: {data}")
+        
+        if not token:
+            logger.error("❌ No access token available!")
+            return None
+        
         headers = {
-            "Authorization": f"Bearer {get_token_for_phone_id(phone_id)}",
+            "Authorization": f"Bearer {token}",
             "Content-Type": "application/json"
         }
-        response = requests.post(url, headers=headers, json=data)
+        
+        logger.info("Making POST request to WhatsApp API...")
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        
+        # Log response details
+        logger.info(f"Response Status Code: {response.status_code}")
+        logger.info(f"Response Headers: {dict(response.headers)}")
+        logger.info(f"Response Body: {response.text}")
+        
         response.raise_for_status()
-        logger.info(f"Message sent successfully: {response.json()}")
-        return response.json()
-    except requests.RequestException as e:
-        logger.error(f"Error sending WhatsApp message: {e}")
+        result = response.json()
+        logger.info(f"✅ Message sent successfully!")
+        logger.info(f"Message ID: {result.get('messages', [{}])[0].get('id', 'N/A')}")
+        logger.info(f"{'='*60}")
+        return result
+        
+    except requests.exceptions.Timeout as e:
+        logger.error(f"❌ Timeout error sending WhatsApp message: {e}")
+        return None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ Error sending WhatsApp message: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            logger.error(f"Error Response Status: {e.response.status_code}")
+            logger.error(f"Error Response Body: {e.response.text}")
+            try:
+                error_data = e.response.json()
+                logger.error(f"Error Details: {error_data}")
+                # Check for common errors
+                if 'error' in error_data:
+                    error_info = error_data['error']
+                    logger.error(f"Error Code: {error_info.get('code')}")
+                    logger.error(f"Error Message: {error_info.get('message')}")
+                    logger.error(f"Error Type: {error_info.get('type')}")
+            except:
+                pass
+        logger.info(f"{'='*60}")
+        return None
+    except Exception as e:
+        logger.error(f"❌ Unexpected error sending message: {e}")
+        logger.info(f"{'='*60}")
         return None
 
 def send_image_message(recipient, image_url, caption="", phone_id=None):
