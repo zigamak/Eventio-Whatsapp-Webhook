@@ -24,11 +24,13 @@ def create_app():
     
     # Get configuration values from environment variables
     app.config['DEBUG'] = os.getenv('FLASK_DEBUG', 'False').lower() in ['true', '1', 't']
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key-here')
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
     # Ensure SECRET_KEY is set
-    if not app.config['SECRET_KEY'] or app.config['SECRET_KEY'] == 'your-secret-key-here':
-        logging.warning("SECRET_KEY environment variable is not set. Using default (not recommended for production).")
+    if not app.config['SECRET_KEY']:
+        logging.error("SECRET_KEY environment variable is not set. This is a security risk.")
+        # Optionally, you could set a default or raise an error
+        # app.config['SECRET_KEY'] = 'a-super-secret-default-key'
 
     # Register the blueprint
     app.register_blueprint(bp)

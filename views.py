@@ -1,9 +1,9 @@
 from flask import Blueprint, request, render_template, jsonify
-from whatsapp import (
+from utils.whatsapp_utils import (
     process_whatsapp_message, send_message, send_image_message, 
     download_whatsapp_image, get_table_name, get_text_message_input
 )
-from database import db_manager
+from utils.db_manager import db_manager
 from config import (
     VERIFY_TOKEN, ACCOUNT1_PHONE_ID_EVENTIO, ACCOUNT1_PHONE_ID_PACKAGE, ACCOUNT2_PHONE_ID
 )
@@ -213,7 +213,6 @@ def mark_read():
     except Exception as e:
         logger.error(f"Error marking messages as read: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
-
 @bp.route('/api/respond', methods=['POST'])
 def respond():
     """Send a text message response."""
@@ -224,31 +223,34 @@ def respond():
         phone_id = data.get('phone_id')
         name = data.get('name', 'Unknown')
         
-        logger.info("=" * 60)
-        logger.info("📤 SENDING MESSAGE FROM WEB INTERFACE")
-        logger.info("=" * 60)
-        logger.info(f"WA ID: {wa_id}")
-        logger.info(f"Message: {message}")
-        logger.info(f"Phone ID: {phone_id}")
-        logger.info(f"Name: {name}")
-        logger.info("=" * 60)
+        logger.info(f"=== RESPOND ENDPOINT CALLED ===")
+        logger.info(f"wa_id: {wa_id}")
+        logger.info(f"message: {message}")
+        logger.info(f"phone_id: {phone_id}")
+        logger.info(f"name: {name}")
         
         if not wa_id or not message or not phone_id:
-            logger.error("❌ Missing required fields")
+            logger.error("Missing required fields")
             return jsonify({'status': 'error', 'message': 'wa_id, message, and phone_id required'}), 400
         
         # Send via WhatsApp API
         payload = get_text_message_input(wa_id, message)
-        logger.info(f"📦 Payload prepared: {payload}")
+        logger.info(f"Sending message with payload: {payload}")
         
         result = send_message(payload, phone_id)
         
-        if result:
-            logger.info(f"✅ WhatsApp API responded successfully")
+        if result and result.get('messages'):
+            # Extract the message ID from WhatsApp response
+            whatsapp_message_id = result.get('messages', [{}])[0].get('id')
+            
+            if not whatsapp_message_id:
+                logger.error("No message ID in WhatsApp response")
+                return jsonify({'status': 'error', 'message': 'No message ID returned from WhatsApp'}), 500
+            
             # Save to database
             table_name = get_table_name(phone_id)
             message_data = {
-                'id': result.get('messages', [{}])[0].get('id', f"out_{datetime.now().timestamp()}"),
+                'id': whatsapp_message_id,  # Use the actual WhatsApp message ID
                 'wa_id': wa_id,
                 'name': name,
                 'type': 'text',
@@ -260,16 +262,23 @@ def respond():
                 'image_url': None,
                 'image_id': None
             }
+            
+            logger.info(f"Saving message to database: {message_data}")
             db_manager.insert_message(table_name, message_data)
-            logger.info(f"✅ Message saved to database")
+            logger.info("Message saved successfully")
+            
             return jsonify({'status': 'success', 'result': result})
         else:
-            logger.error("❌ WhatsApp API returned None")
-            return jsonify({'status': 'error', 'message': 'Failed to send message - API returned no response'}), 500
+            error_msg = 'Failed to send message - no response from WhatsApp API'
+            if result:
+                error_msg = f'Failed to send message - WhatsApp response: {result}'
+            logger.error(error_msg)
+            return jsonify({'status': 'error', 'message': error_msg}), 500
+            
     except Exception as e:
-        logger.error(f"❌ Error in respond endpoint: {e}", exc_info=True)
+        logger.error(f"Error in respond endpoint: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': str(e)}), 500
-
+    
 @bp.route('/api/send-image', methods=['POST'])
 def send_image():
     """Send an image message."""
