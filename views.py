@@ -1,9 +1,9 @@
 from flask import Blueprint, request, render_template, jsonify
-from utils.whatsapp_utils import (
+from whatsapp import (
     process_whatsapp_message, send_message, send_image_message, 
     download_whatsapp_image, get_table_name, get_text_message_input
 )
-from utils.db_manager import db_manager
+from database import db_manager
 from config import (
     VERIFY_TOKEN, ACCOUNT1_PHONE_ID_EVENTIO, ACCOUNT1_PHONE_ID_PACKAGE, ACCOUNT2_PHONE_ID
 )
@@ -224,14 +224,27 @@ def respond():
         phone_id = data.get('phone_id')
         name = data.get('name', 'Unknown')
         
+        logger.info("=" * 60)
+        logger.info("📤 SENDING MESSAGE FROM WEB INTERFACE")
+        logger.info("=" * 60)
+        logger.info(f"WA ID: {wa_id}")
+        logger.info(f"Message: {message}")
+        logger.info(f"Phone ID: {phone_id}")
+        logger.info(f"Name: {name}")
+        logger.info("=" * 60)
+        
         if not wa_id or not message or not phone_id:
+            logger.error("❌ Missing required fields")
             return jsonify({'status': 'error', 'message': 'wa_id, message, and phone_id required'}), 400
         
         # Send via WhatsApp API
         payload = get_text_message_input(wa_id, message)
+        logger.info(f"📦 Payload prepared: {payload}")
+        
         result = send_message(payload, phone_id)
         
         if result:
+            logger.info(f"✅ WhatsApp API responded successfully")
             # Save to database
             table_name = get_table_name(phone_id)
             message_data = {
@@ -248,11 +261,13 @@ def respond():
                 'image_id': None
             }
             db_manager.insert_message(table_name, message_data)
+            logger.info(f"✅ Message saved to database")
             return jsonify({'status': 'success', 'result': result})
         else:
-            return jsonify({'status': 'error', 'message': 'Failed to send message'}), 500
+            logger.error("❌ WhatsApp API returned None")
+            return jsonify({'status': 'error', 'message': 'Failed to send message - API returned no response'}), 500
     except Exception as e:
-        logger.error(f"Error responding: {e}")
+        logger.error(f"❌ Error in respond endpoint: {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @bp.route('/api/send-image', methods=['POST'])
