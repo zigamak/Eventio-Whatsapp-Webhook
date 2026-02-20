@@ -328,7 +328,7 @@ def send_image():
     except Exception as e:
         logger.error(f"Error sending image: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
-
+    
 @bp.route('/api/log-outbound', methods=['POST'])
 def log_outbound():
     """Receive outbound message log from Apps Script or PHP dashboard."""
@@ -338,8 +338,9 @@ def log_outbound():
         phone_id = data.get('phone_id')
         name = data.get('name', 'Unknown')
         message_body = data.get('body', '')
-        message_id = data.get('message_id')  # WhatsApp message ID returned after send
+        message_id = data.get('message_id')
         message_type = data.get('type', 'template')
+        image_url = data.get('image_url', None)  # image URL from column G
 
         if not wa_id or not phone_id or not message_id:
             return jsonify({'status': 'error', 'message': 'wa_id, phone_id, and message_id required'}), 400
@@ -349,18 +350,18 @@ def log_outbound():
             'id': message_id,
             'wa_id': wa_id,
             'name': name,
-            'type': message_type,
+            'type': 'image' if image_url else message_type,
             'body': message_body,
             'timestamp': datetime.now(),
             'direction': 'outbound',
             'status': 'sent',
             'read': False,
-            'image_url': None,
+            'image_url': image_url,
             'image_id': None
         }
 
         db_manager.insert_message(table_name, message_data)
-        logger.info(f"Logged outbound message {message_id} for {wa_id}")
+        logger.info(f"✅ Logged outbound message {message_id} for {wa_id} ({name})")
         return jsonify({'status': 'success'})
 
     except Exception as e:

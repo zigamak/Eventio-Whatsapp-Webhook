@@ -3,712 +3,1194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eventio</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Eventio — Messages</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        /* Custom scrollbar styling */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
+        :root {
+            --brand:        #452869;
+            --brand-dark:   #321d4f;
+            --brand-light:  #5a3780;
+            --brand-pale:   #ede8f5;
+            --sent-bg:      #DCF8C6;
+            --sent-dark:    #c5eaae;
+            --received-bg:  #ffffff;
+            --chat-bg:      #eae6df;
+            --sidebar-bg:   #ffffff;
+            --header-bg:    #452869;
+            --text-primary: #111827;
+            --text-secondary:#6b7280;
+            --text-muted:   #9ca3af;
+            --border:       #e5e7eb;
+            --tick-grey:    #8c9aab;
+            --tick-blue:    #34b7f1;
+            --online:       #25d366;
+            --shadow-sm:    0 1px 3px rgba(0,0,0,.08);
+            --shadow-md:    0 4px 12px rgba(0,0,0,.12);
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f1f1;
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--chat-bg);
+            height: 100vh;
+            overflow: hidden;
+            color: var(--text-primary);
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 3px;
+
+        /* ─── LAYOUT ─────────────────────────────── */
+        .app {
+            display: flex;
+            height: 100vh;
+            max-width: 1400px;
+            margin: 0 auto;
+            box-shadow: 0 0 60px rgba(0,0,0,.25);
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #555;
+
+        /* ─── SIDEBAR ────────────────────────────── */
+        .sidebar {
+            width: 360px;
+            min-width: 300px;
+            background: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            transition: transform .3s ease;
         }
-        
-        /* WhatsApp-like chat bubble styles */
-        .chat-bubble {
-            max-width: 70%;
-            word-wrap: break-word;
-            animation: fadeIn 0.2s ease-in;
+
+        .sidebar-header {
+            background: var(--header-bg);
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
         }
-        .chat-bubble.sent {
-            background: linear-gradient(135deg, #DCF8C6 0%, #C8E6B8 100%);
+
+        .sidebar-header .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
-        .chat-bubble.received {
-            background-color: #FFFFFF;
-            border: 1px solid #e5e7eb;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        /* Smooth transitions */
-        .transition-all {
-            transition: all 0.3s ease;
-        }
-        
-        /* Mobile view classes */
-        @media (max-width: 768px) {
-            .mobile-hidden {
-                display: none !important;
-            }
-            .mobile-show {
-                display: flex !important;
-            }
-        }
-        
-        /* Chat background pattern */
-        .chat-bg {
-            background-color: #e5ddd5;
-            background-image: 
-                repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.05) 35px, rgba(255,255,255,.05) 70px);
-        }
-        
-        /* Online status indicator */
-        .status-online {
-            width: 10px;
-            height: 10px;
-            background-color: #25D366;
+
+        .brand-logo {
+            width: 38px;
+            height: 38px;
+            background: rgba(255,255,255,.15);
             border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-            animation: pulse 2s infinite;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
         }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+
+        .brand-name {
+            color: #fff;
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: .3px;
         }
-        
-        /* Typing indicator */
-        .typing-indicator {
-            display: inline-flex;
+
+        .header-actions {
+            display: flex;
             gap: 4px;
         }
-        .typing-indicator span {
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: transparent;
+            color: rgba(255,255,255,.85);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .2s;
+        }
+        .icon-btn:hover { background: rgba(255,255,255,.15); color: #fff; }
+
+        .search-wrap {
+            padding: 10px 12px;
+            background: #f0f2f5;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .search-inner {
+            display: flex;
+            align-items: center;
+            background: #fff;
+            border-radius: 8px;
+            padding: 7px 12px;
+            gap: 8px;
+            border: 1px solid var(--border);
+            transition: border-color .2s, box-shadow .2s;
+        }
+        .search-inner:focus-within {
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px rgba(69,40,105,.1);
+        }
+
+        .search-inner svg { color: var(--text-muted); flex-shrink: 0; }
+
+        .search-inner input {
+            border: none;
+            outline: none;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--text-primary);
+            width: 100%;
+            background: transparent;
+        }
+        .search-inner input::placeholder { color: var(--text-muted); }
+
+        /* ─── CHAT LIST ──────────────────────────── */
+        #chats-container {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        #chats-container::-webkit-scrollbar { width: 4px; }
+        #chats-container::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 2px; }
+
+        .chat-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            transition: background .15s;
+            position: relative;
+        }
+        .chat-item:hover { background: #f9fafb; }
+        .chat-item.active { background: var(--brand-pale); }
+
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--brand);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 19px;
+            font-weight: 600;
+            flex-shrink: 0;
+            text-transform: uppercase;
+        }
+
+        .avatar.sm {
+            width: 36px;
+            height: 36px;
+            font-size: 14px;
+        }
+
+        .chat-meta { flex: 1; min-width: 0; }
+
+        .chat-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 2px;
+        }
+
+        .chat-name {
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .chat-name.unread { font-weight: 700; }
+
+        .chat-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            margin-left: 8px;
+            flex-shrink: 0;
+        }
+        .chat-time.unread { color: var(--brand); font-weight: 600; }
+
+        .chat-phone {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+
+        .chat-preview-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-preview {
+            font-size: 13px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+        }
+        .chat-preview.unread { color: var(--text-primary); font-weight: 500; }
+
+        .unread-badge {
+            min-width: 20px;
+            height: 20px;
+            background: var(--brand);
+            color: #fff;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 5px;
+            margin-left: 8px;
+            flex-shrink: 0;
+        }
+
+        /* ─── EMPTY / LOADING STATES ─────────────── */
+        .state-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            padding: 32px;
+            text-align: center;
+            gap: 12px;
+        }
+        .state-empty svg { opacity: .35; }
+        .state-empty p { font-size: 14px; }
+
+        /* ─── CHAT AREA ──────────────────────────── */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--chat-bg);
+            position: relative;
+        }
+
+        .chat-area.empty-state {
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-area-placeholder {
+            text-align: center;
+            color: var(--text-muted);
+        }
+        .chat-area-placeholder .icon-wrap {
+            width: 80px;
+            height: 80px;
+            background: rgba(69,40,105,.08);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+        .chat-area-placeholder p { font-size: 15px; margin-bottom: 4px; }
+        .chat-area-placeholder small { font-size: 13px; }
+
+        /* Chat background pattern like WhatsApp */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            background-color: #eae6df;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c8bfb0' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .messages-container::-webkit-scrollbar { width: 5px; }
+        .messages-container::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 3px; }
+
+        /* ─── CHAT HEADER ────────────────────────── */
+        .chat-header {
+            background: var(--header-bg);
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .chat-header .contact-info { flex: 1; min-width: 0; }
+        .chat-header .contact-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .chat-header .contact-sub {
+            font-size: 12px;
+            color: rgba(255,255,255,.7);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
             width: 8px;
             height: 8px;
-            background-color: #9ca3af;
             border-radius: 50%;
-            animation: bounce 1.4s infinite ease-in-out both;
+            background: var(--online);
+            animation: pulse-dot 2s infinite;
+            flex-shrink: 0;
         }
-        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
-        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
-        
-        @keyframes bounce {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1); }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: .6; transform: scale(.85); }
         }
+
+        /* ─── DATE DIVIDER ───────────────────────── */
+        .date-divider {
+            text-align: center;
+            margin: 12px 0 8px;
+            position: relative;
+        }
+        .date-divider span {
+            background: rgba(225,221,216,.9);
+            color: #6b7280;
+            font-size: 11.5px;
+            font-weight: 500;
+            padding: 4px 12px;
+            border-radius: 8px;
+            box-shadow: var(--shadow-sm);
+            letter-spacing: .3px;
+        }
+
+        /* ─── MESSAGE BUBBLES ────────────────────── */
+        .msg-row {
+            display: flex;
+            margin: 1px 0;
+        }
+        .msg-row.sent { justify-content: flex-end; }
+        .msg-row.received { justify-content: flex-start; }
+
+        .bubble {
+            max-width: 68%;
+            padding: 7px 10px 6px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,.13);
+            position: relative;
+            animation: bubble-in .15s ease-out;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+        @keyframes bubble-in {
+            from { opacity: 0; transform: scale(.97) translateY(4px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .msg-row.sent  .bubble {
+            background: var(--sent-bg);
+            border-top-right-radius: 2px;
+        }
+        .msg-row.received .bubble {
+            background: var(--received-bg);
+            border-top-left-radius: 2px;
+        }
+
+        /* Tail */
+        .msg-row.sent .bubble::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: -8px;
+            border: 8px solid transparent;
+            border-top-color: var(--sent-bg);
+            border-right: 0;
+        }
+        .msg-row.received .bubble::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -8px;
+            border: 8px solid transparent;
+            border-top-color: var(--received-bg);
+            border-left: 0;
+        }
+
+        /* Template badge */
+        .template-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(69,40,105,.1);
+            color: var(--brand);
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 10px;
+            margin-bottom: 5px;
+            letter-spacing: .3px;
+            text-transform: uppercase;
+        }
+
+        .bubble-image {
+            width: 100%;
+            max-width: 280px;
+            border-radius: 6px;
+            display: block;
+            margin-bottom: 4px;
+            cursor: zoom-in;
+            object-fit: cover;
+        }
+
+        .bubble-text {
+            font-size: 14px;
+            line-height: 1.45;
+            color: #1a1a1a;
+        }
+
+        .bubble-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px;
+            margin-top: 3px;
+        }
+
+        .bubble-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            font-family: 'DM Mono', monospace;
+        }
+        .msg-row.received .bubble-time { color: #8a9bb0; }
+
+        /* ─── TICK ICONS ─────────────────────────── */
+        .tick { display: inline-flex; align-items: center; }
+
+        .tick-single svg { fill: var(--tick-grey); }
+        .tick-double svg { fill: var(--tick-grey); }
+        .tick-read   svg { fill: var(--tick-blue); }
+        .tick-failed svg { fill: #ef4444; }
+
+        /* ─── SENDER NAME (group-like) ───────────── */
+        .sender-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--brand);
+            margin-bottom: 2px;
+        }
+
+        /* ─── INPUT AREA ─────────────────────────── */
+        .input-area {
+            background: #f0f2f5;
+            padding: 10px 16px;
+            border-top: 1px solid #dde0e4;
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .input-wrap {
+            flex: 1;
+            background: #fff;
+            border-radius: 24px;
+            padding: 9px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid var(--border);
+            transition: border-color .2s, box-shadow .2s;
+            min-height: 44px;
+        }
+        .input-wrap:focus-within {
+            border-color: var(--brand);
+            box-shadow: 0 0 0 3px rgba(69,40,105,.08);
+        }
+
+        .input-wrap input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-family: inherit;
+            font-size: 14.5px;
+            color: var(--text-primary);
+            background: transparent;
+            min-width: 0;
+        }
+        .input-wrap input::placeholder { color: var(--text-muted); }
+
+        .attach-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .15s, color .15s;
+            flex-shrink: 0;
+        }
+        .attach-btn:hover { background: #e5e7eb; color: var(--brand); }
+
+        .send-btn {
+            width: 44px;
+            height: 44px;
+            border: none;
+            background: var(--brand);
+            color: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .15s, transform .1s;
+            box-shadow: 0 2px 8px rgba(69,40,105,.35);
+            flex-shrink: 0;
+        }
+        .send-btn:hover { background: var(--brand-light); transform: scale(1.05); }
+        .send-btn:active { transform: scale(.95); }
+
+        /* ─── IMAGE LIGHTBOX ─────────────────────── */
+        .lightbox {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.88);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fade-in .2s ease;
+        }
+        .lightbox.open { display: flex; }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+        .lightbox img {
+            max-width: 90vw;
+            max-height: 90vh;
+            border-radius: 8px;
+            box-shadow: 0 8px 40px rgba(0,0,0,.5);
+        }
+        .lightbox-close {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,.15);
+            border: none;
+            color: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ─── MOBILE ─────────────────────────────── */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: absolute;
+                left: 0; top: 0; bottom: 0;
+                z-index: 100;
+                width: 100%;
+                transform: translateX(0);
+            }
+            .sidebar.hidden { transform: translateX(-100%); }
+            .chat-area { width: 100%; }
+            .back-btn { display: flex !important; }
+            .bubble { max-width: 82%; }
+        }
+
+        .back-btn {
+            display: none;
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: transparent;
+            color: rgba(255,255,255,.85);
+            border-radius: 50%;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            transition: background .2s;
+            flex-shrink: 0;
+        }
+        .back-btn:hover { background: rgba(255,255,255,.15); }
+
+        /* ─── LOADING SPINNER ────────────────────── */
+        .spinner {
+            width: 28px;
+            height: 28px;
+            border: 3px solid rgba(69,40,105,.2);
+            border-top-color: var(--brand);
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ─── TOAST ──────────────────────────────── */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(60px);
+            background: #323232;
+            color: #fff;
+            font-size: 13px;
+            padding: 10px 20px;
+            border-radius: 24px;
+            box-shadow: var(--shadow-md);
+            transition: transform .3s ease, opacity .3s ease;
+            opacity: 0;
+            z-index: 999;
+            white-space: nowrap;
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
     </style>
 </head>
-<body class="bg-gray-100 font-sans">
-    <div class="flex h-screen overflow-hidden">
-        <!-- Chat List Sidebar -->
-        <div id="chat-list" class="w-full md:w-1/3 bg-white border-r border-gray-300 flex flex-col">
-            <!-- Header -->
-            <div class="bg-[#452869] text-white p-4 flex items-center justify-between shadow-md">
-                <h1 class="text-xl font-semibold tracking-wide">Eventio</h1>
-                <div class="flex gap-3">
-                    <button class="hover:bg-[#5a3780] p-2 rounded-full transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                    </button>
-                    <button class="hover:bg-[#5a3780] p-2 rounded-full transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Search -->
-            <div class="p-3 bg-gray-50 border-b border-gray-200">
-                <div class="relative">
-                    <input type="text" id="search-input" placeholder="Search or start new chat..." 
-                        class="w-full pl-10 pr-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#452869] focus:border-transparent transition">
-                    <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                </div>
-            </div>
-            
-            <!-- Chats Container -->
-            <div id="chats-container" class="flex-1 overflow-y-auto custom-scrollbar">
-                <div class="flex items-center justify-center h-full text-gray-400">
-                    <div class="text-center">
-                        <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                        <p>Loading chats...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+<body>
 
-        <!-- Chat Area -->
-        <div id="chat-area" class="w-full md:w-2/3 flex-col bg-gray-200 mobile-hidden">
-            <!-- Chat Header -->
-            <div id="chat-header" class="bg-[#452869] text-white p-4 flex items-center shadow-md">
-                <button id="back-to-chats" class="md:hidden mr-3 hover:bg-[#5a3780] p-2 rounded-full transition">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+<!-- ─── LIGHTBOX ─────────────────────────────────────── -->
+<div class="lightbox" id="lightbox">
+    <button class="lightbox-close" id="lightbox-close">✕</button>
+    <img id="lightbox-img" src="" alt="Full image">
+</div>
+
+<!-- ─── TOAST ────────────────────────────────────────── -->
+<div class="toast" id="toast"></div>
+
+<div class="app">
+
+    <!-- ═══════════════ SIDEBAR ═══════════════ -->
+    <div class="sidebar" id="sidebar">
+
+        <div class="sidebar-header">
+            <div class="brand">
+                <div class="brand-logo">🎟️</div>
+                <span class="brand-name">Eventio</span>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn" title="New chat">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 5v14M5 12h14"/>
                     </svg>
                 </button>
-                <div class="w-10 h-10 bg-white/20 rounded-full mr-3 flex-shrink-0 flex items-center justify-center text-lg font-bold" id="chat-avatar">
-                    #
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div id="chat-contact-name" class="text-lg font-semibold truncate">Select a chat</div>
-                    <div id="chat-contact-phone" class="text-xs font-light opacity-80 truncate"></div>
-                    <div class="flex items-center text-xs opacity-90">
-                        <span id="chat-contact-status" class="truncate">Start messaging</span>
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <button class="hover:bg-[#5a3780] p-2 rounded-full transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </button>
-                    <button class="hover:bg-[#5a3780] p-2 rounded-full transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            
-            <!-- Messages Container -->
-            <div id="messages-container" class="flex-1 p-4 overflow-y-auto custom-scrollbar chat-bg">
-                <div class="flex items-center justify-center h-full text-gray-500">
-                    <div class="text-center">
-                        <svg class="w-20 h-20 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                        <p class="text-lg font-medium">Select a chat to start messaging</p>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Message Input -->
-            <div class="bg-gray-100 p-4 border-t border-gray-300">
-                <form id="message-form" class="flex items-end gap-2">
-                    <button type="button" class="p-3 text-gray-600 hover:text-[#452869] transition rounded-full hover:bg-gray-200">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </button>
-                    <input type="text" id="message-input" placeholder="Type a message..." 
-                        class="flex-1 p-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#452869] focus:border-transparent transition">
-                    <input type="file" id="image-input" accept="image/*" class="hidden">
-                    <button type="button" id="attach-image" class="p-3 text-gray-600 hover:text-[#452869] transition rounded-full hover:bg-gray-200">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 002.828 2.828l6.586-6.586a4 4 0 00-5.656-5.656l-6.586 6.586a6 6 0 008.485 8.485l6.586-6.586" />
-                        </svg>
-                    </button>
-                    <button type="submit" class="p-3 bg-[#452869] text-white hover:bg-[#5a3780] transition rounded-full shadow-lg">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                        </svg>
-                    </button>
-                </form>
+                <button class="icon-btn" title="More options">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+                    </svg>
+                </button>
             </div>
         </div>
+
+        <div class="search-wrap">
+            <div class="search-inner">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                </svg>
+                <input type="text" id="search-input" placeholder="Search conversations…">
+            </div>
+        </div>
+
+        <div id="chats-container">
+            <div class="state-empty">
+                <div class="spinner"></div>
+                <p>Loading conversations…</p>
+            </div>
+        </div>
+
     </div>
 
-    <script>
-        const phoneId = "{{ phone_id }}";
-        let currentWaId = null;
-        let currentContactName = null;
-        let lastChatData = null;
-        let lastMessageData = null;
+    <!-- ═══════════════ CHAT AREA ═══════════════ -->
+    <div class="chat-area empty-state" id="chat-area">
 
-        // Debug logging
-        console.log("=".repeat(60));
-        console.log("🚀 Eventio WhatsApp Interface Initialized");
-        console.log("=".repeat(60));
-        console.log("📱 Phone ID:", phoneId);
-        console.log("🌐 API Base:", window.location.origin);
-        console.log("=".repeat(60));
+        <!-- Shown when no chat selected -->
+        <div class="chat-area-placeholder" id="chat-placeholder">
+            <div class="icon-wrap">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#452869" stroke-width="1.5">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                </svg>
+            </div>
+            <p>Select a conversation</p>
+            <small>Access cards and replies will appear here</small>
+        </div>
 
-        function isScrolledToBottom(element) {
-            return element.scrollHeight - element.scrollTop <= element.clientHeight + 10;
-        }
+        <!-- Chat header (hidden until chat selected) -->
+        <div class="chat-header" id="chat-header" style="display:none;">
+            <button class="back-btn" id="back-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M19 12H5M12 5l-7 7 7 7"/>
+                </svg>
+            </button>
+            <div class="avatar sm" id="header-avatar">?</div>
+            <div class="contact-info">
+                <div class="contact-name" id="header-name">—</div>
+                <div class="contact-sub" id="header-sub">
+                    <span id="header-status-text">loading…</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn" title="Search">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                    </svg>
+                </button>
+                <button class="icon-btn" title="More">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
 
-        function formatContactStatus(lastTimestamp, isOnline) {
-            if (isOnline) {
-                return '<span class="status-online"></span>Online';
-            }
-            if (lastTimestamp) {
-                const date = new Date(lastTimestamp);
-                const now = new Date();
-                const diffMs = now - date;
-                const diffMins = Math.round(diffMs / (1000 * 60));
+        <!-- Messages -->
+        <div class="messages-container" id="messages-container" style="display:none;"></div>
 
-                if (diffMins < 1) return 'Active now';
-                if (diffMins < 60) return `Last seen ${diffMins} minutes ago`;
-                if (diffMins < (24 * 60)) {
-                    return `Last seen today at ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}`;
-                }
-                return `Last seen ${date.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}`;
-            }
-            return 'Offline';
-        }
+        <!-- Input -->
+        <div class="input-area" id="input-area" style="display:none;">
+            <button class="attach-btn" id="emoji-btn" title="Emoji">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                    <line x1="9" y1="9" x2="9.01" y2="9"/>
+                    <line x1="15" y1="9" x2="15.01" y2="9"/>
+                </svg>
+            </button>
+            <div class="input-wrap">
+                <input type="text" id="message-input" placeholder="Type a message…" autocomplete="off">
+                <button class="attach-btn" id="attach-btn" title="Attach image" style="width:28px;height:28px;margin:-4px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+                    </svg>
+                </button>
+            </div>
+            <input type="file" id="image-input" accept="image/*" style="display:none;">
+            <button class="send-btn" id="send-btn" title="Send">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <line x1="22" y1="2" x2="11" y2="13"/>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+            </button>
+        </div>
 
-        async function fetchChats() {
-            try {
-                const response = await fetch(`/api/chats?phone_id=${phoneId}`);
-                
-                if (!response.ok) {
-                    const data = await response.json().catch(() => ({ message: 'Unknown error' }));
-                    console.error('❌ Error fetching chats:', data.message);
-                    
-                    if (!lastChatData || lastChatData.length === 0) {
-                        const chatsContainer = document.getElementById('chats-container');
-                        chatsContainer.innerHTML = `
-                            <div class="flex items-center justify-center h-full text-gray-400">
-                                <div class="text-center p-8">
-                                    <svg class="w-16 h-16 mx-auto mb-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <p class="font-medium text-gray-600">Unable to load chats</p>
-                                    <p class="text-sm mt-2">Please check your connection</p>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    return;
-                }
-                
-                const data = await response.json();
-                if (data.chats) {
-                    data.chats.sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp));
-                    if (JSON.stringify(data.chats) !== JSON.stringify(lastChatData)) {
-                        displayChats(data.chats);
-                        lastChatData = data.chats;
-                    }
-                }
-            } catch (error) {
-                console.error('❌ Error fetching chats:', error);
-                
-                if (!lastChatData || lastChatData.length === 0) {
-                    const chatsContainer = document.getElementById('chats-container');
-                    chatsContainer.innerHTML = `
-                        <div class="flex items-center justify-center h-full text-gray-400">
-                            <div class="text-center p-8">
-                                <svg class="w-16 h-16 mx-auto mb-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <p class="font-medium text-gray-600">Connection error</p>
-                                <p class="text-sm mt-2">Retrying...</p>
-                            </div>
-                        </div>
-                    `;
-                }
-            }
-        }
+    </div>
+</div>
 
-        function displayChats(chats) {
-            const chatsContainer = document.getElementById('chats-container');
-            chatsContainer.innerHTML = '';
-            
-            if (chats.length === 0) {
-                chatsContainer.innerHTML = `
-                    <div class="flex items-center justify-center h-full text-gray-400">
-                        <div class="text-center p-8">
-                            <svg class="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                            <p>No chats yet</p>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-            
-            chats.forEach(chat => {
-                const lastMessageTime = chat.last_message_timestamp 
-                    ? new Date(chat.last_message_timestamp).toLocaleTimeString('en-US', { 
-                        hour: 'numeric', minute: 'numeric', hour12: true 
-                    }) 
-                    : '';
-                const unreadCount = chat.unread_count || 0;
-                const lastBody = chat.last_body ? chat.last_body.substring(0, 50) + (chat.last_body.length > 50 ? '...' : '') : 'No messages';
-                const nameClass = unreadCount > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-800';
-                const previewClass = unreadCount > 0 ? 'text-sm text-gray-900 font-medium' : 'text-sm text-gray-600';
-                const chatElement = document.createElement('div');
-                
-                const isActive = currentWaId === chat.wa_id;
-                chatElement.className = `p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-all ${isActive ? 'bg-gray-100' : ''}`;
-                
-                const initial = chat.name ? chat.name[0].toUpperCase() : '#';
-                
-                chatElement.innerHTML = `
-                    <div class="flex items-start gap-3">
-                        <div class="w-12 h-12 bg-[#452869] rounded-full flex-shrink-0 flex items-center justify-center text-xl font-bold text-white shadow">
-                            ${initial}
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <div class="flex justify-between items-baseline mb-1">
-                                <div class="${nameClass} truncate">${chat.name || 'Unknown Contact'}</div>
-                                <div class="text-xs ${unreadCount > 0 ? 'text-[#452869] font-semibold' : 'text-gray-500'} ml-2 flex-shrink-0">${lastMessageTime}</div>
-                            </div>
-                            <div class="text-xs text-gray-500 mb-1 truncate">+${chat.wa_id}</div>
-                            <div class="${previewClass} truncate mb-1">${lastBody}</div>
-                            ${unreadCount > 0 ? `<div class="inline-block bg-[#452869] text-white text-xs px-2 py-0.5 rounded-full min-w-[20px] text-center">${unreadCount}</div>` : ''}
-                        </div>
-                    </div>
-                `;
-                
-                chatElement.addEventListener('click', () => {
-                    loadMessages(chat.wa_id, chat.name);
-                });
-                
-                chatsContainer.appendChild(chatElement);
-            });
-        }
+<script>
+// ─── CONFIG ─────────────────────────────────────────────
+const phoneId = "{{ phone_id }}";
+let currentWaId       = null;
+let currentName       = null;
+let lastChatData      = null;
+let lastMessageData   = null;
+let pollingTimer      = null;
 
-        async function loadMessages(waId, contactName, isPolling = false) {
-            const messagesContainer = document.getElementById('messages-container');
-            const wasScrolledToBottom = isScrolledToBottom(messagesContainer);
+// ─── TICK SVG HELPERS ────────────────────────────────────
+function tickSVG(color, double = false) {
+    if (!double) {
+        return `<svg width="15" height="10" viewBox="0 0 15 10" fill="${color}">
+            <path d="M14.2.8a.75.75 0 0 1 0 1.05l-8.5 8.5a.75.75 0 0 1-1.06 0l-4-4A.75.75 0 0 1 1.7 5.3L5.17 8.77 13.15.8a.75.75 0 0 1 1.05 0z"/>
+        </svg>`;
+    }
+    return `<svg width="18" height="10" viewBox="0 0 18 10" fill="${color}">
+        <path d="M17.2.8a.75.75 0 0 1 0 1.05l-8.5 8.5a.75.75 0 0 1-1.06 0l-4-4A.75.75 0 0 1 4.7 5.3L8.17 8.77 16.15.8a.75.75 0 0 1 1.05 0zM10.95.8a.75.75 0 0 1 1.05 0l5.2 5.2-1.05 1.05L11 2.38l-.05-.05a.75.75 0 0 1 0-1.53z"/>
+    </svg>`;
+}
 
-            currentWaId = waId;
-            currentContactName = contactName || waId;
+function getTickHTML(status, direction) {
+    if (direction !== 'outbound') return '';
+    switch ((status || '').toLowerCase()) {
+        case 'read':
+            return `<span class="tick tick-read" title="Read">${tickSVG('#34b7f1', true)}</span>`;
+        case 'delivered':
+            return `<span class="tick tick-double" title="Delivered">${tickSVG('#8c9aab', true)}</span>`;
+        case 'failed':
+            return `<span class="tick tick-failed" title="Failed">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#ef4444">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+            </span>`;
+        case 'sent':
+        default:
+            return `<span class="tick tick-single" title="Sent">${tickSVG('#8c9aab', false)}</span>`;
+    }
+}
 
-            console.log("📖 Loading messages for:", waId, contactName);
+// ─── DATE GROUPING ───────────────────────────────────────
+function formatDateLabel(dateStr) {
+    const d = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return 'Today';
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
-            const chatArea = document.getElementById('chat-area');
-            const chatList = document.getElementById('chat-list');
-            
-            chatArea.classList.remove('mobile-hidden');
-            chatArea.classList.add('flex');
-            
-            if (window.innerWidth < 768) {
-                chatList.classList.add('mobile-hidden');
-            }
+function formatTime(dateStr) {
+    return new Date(dateStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
 
-            document.querySelectorAll('#chats-container > div').forEach(el => {
-                if (el.querySelector('.truncate')) {
-                    const nameEl = el.querySelector('[class*="font-bold"], [class*="font-semibold"]');
-                    if (nameEl && nameEl.textContent.includes(contactName)) {
-                        el.classList.add('bg-gray-100');
-                    } else {
-                        el.classList.remove('bg-gray-100');
-                    }
-                }
-            });
+function escapeHtml(text) {
+    const d = document.createElement('div');
+    d.textContent = text;
+    return d.innerHTML;
+}
 
-            const initial = currentContactName ? currentContactName[0].toUpperCase() : '#';
-            document.getElementById('chat-avatar').textContent = initial;
-            document.getElementById('chat-contact-name').textContent = currentContactName;
-            document.getElementById('chat-contact-phone').textContent = `+${waId}`;
-            document.getElementById('chat-contact-status').innerHTML = isPolling ? document.getElementById('chat-contact-status').innerHTML : 'Loading...';
+// ─── TOAST ───────────────────────────────────────────────
+function showToast(msg, duration = 3000) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), duration);
+}
 
-            try {
-                const response = await fetch(`/api/chats/${waId}?phone_id=${phoneId}`);
-                
-                if (!response.ok) {
-                    const data = await response.json().catch(() => ({ message: 'Unknown error' }));
-                    console.error('❌ Error fetching messages:', data.message);
-                    
-                    if (!isPolling) {
-                        messagesContainer.innerHTML = `
-                            <div class="flex items-center justify-center h-full text-gray-500">
-                                <div class="text-center">
-                                    <svg class="w-16 h-16 mx-auto mb-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <p class="text-lg font-medium text-gray-600">Unable to load messages</p>
-                                    <p class="text-sm mt-2">Please try again later</p>
-                                </div>
-                            </div>
-                        `;
-                        document.getElementById('chat-contact-status').innerHTML = 'Error loading chat';
-                    }
-                    return;
-                }
-                
-                const data = await response.json();
-                const chatMetadata = lastChatData ? lastChatData.find(c => c.wa_id === waId) : null;
-                const lastTimestamp = chatMetadata ? chatMetadata.last_message_timestamp : null;
-                const isOnline = !isPolling && Math.random() < 0.3;
-                document.getElementById('chat-contact-status').innerHTML = formatContactStatus(lastTimestamp, isOnline);
+// ─── STATUS TEXT ─────────────────────────────────────────
+function buildStatusText(lastTimestamp) {
+    if (!lastTimestamp) return 'Offline';
+    const diff = (Date.now() - new Date(lastTimestamp)) / 60000;
+    if (diff < 2)  return '<span class="status-dot"></span>Online';
+    if (diff < 60) return `Last seen ${Math.round(diff)} min ago`;
+    if (diff < 1440) {
+        return `Last seen today at ${new Date(lastTimestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+    }
+    return `Last seen ${new Date(lastTimestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+}
 
-                if (data.messages && (JSON.stringify(data.messages) !== JSON.stringify(lastMessageData) || !isPolling)) {
-                    displayMessages(data.messages);
-                    lastMessageData = data.messages;
-                    if (wasScrolledToBottom || !isPolling) {
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                    }
-                }
-                
-                if (!isPolling) {
-                    await markMessagesAsRead(waId);
-                    fetchChats();
-                }
-            } catch (error) {
-                console.error('❌ Error fetching messages:', error);
-                
-                if (!isPolling) {
-                    messagesContainer.innerHTML = `
-                        <div class="flex items-center justify-center h-full text-gray-500">
-                            <div class="text-center">
-                                <svg class="w-16 h-16 mx-auto mb-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <p class="text-lg font-medium text-gray-600">Connection error</p>
-                                <p class="text-sm mt-2">Retrying...</p>
-                            </div>
-                        </div>
-                    `;
-                    document.getElementById('chat-contact-status').innerHTML = 'Offline';
-                }
+// ─── FETCH CHATS ─────────────────────────────────────────
+async function fetchChats() {
+    try {
+        const res  = await fetch(`/api/chats?phone_id=${phoneId}`);
+        const data = await res.json();
+        if (data.chats) {
+            data.chats.sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp));
+            if (JSON.stringify(data.chats) !== JSON.stringify(lastChatData)) {
+                renderChats(data.chats);
+                lastChatData = data.chats;
             }
         }
-
-        function displayMessages(messages) {
-            const messagesContainer = document.getElementById('messages-container');
-            messagesContainer.innerHTML = '';
-            
-            if (!messages || messages.length === 0) {
-                messagesContainer.innerHTML = `
-                    <div class="flex items-center justify-center h-full text-gray-500">
-                        <div class="text-center">
-                            <p class="text-lg">No messages yet</p>
-                            <p class="text-sm mt-2">Start the conversation!</p>
-                        </div>
-                    </div>
-                `;
-                return;
-            }
-            
-            messages.forEach(msg => {
-                const messageElement = document.createElement('div');
-                const isSent = msg.direction === 'outbound';
-                messageElement.className = `chat-bubble p-3 my-2 rounded-lg ${isSent ? 'sent ml-auto' : 'received mr-auto'} shadow-sm`;
-                
-                let content = '';
-                if (msg.type === 'image' && msg.image_url) {
-                    content = `
-                        <img src="${msg.image_url}" 
-                             alt="Image" 
-                             class="max-w-full rounded-lg mb-2" 
-                             style="max-height: 250px;"
-                             onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22200%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23999%22 stroke-width=%222%22%3E%3Crect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22/%3E%3Ccircle cx=%228.5%22 cy=%228.5%22 r=%221.5%22/%3E%3Cpath d=%22M21 15l-5-5L5 21%22/%3E%3C/svg%3E'; this.style.opacity='0.3';">
-                    `;
-                    if (msg.body && msg.body.trim() !== '📷 Image') {
-                        content += `<div class="mt-2">${escapeHtml(msg.body.replace('📷 Image', '').trim())}</div>`;
-                    }
-                } else {
-                    const bodyText = msg.body || (msg.type === 'image' ? '📷 Image' : 'Message content unavailable');
-                    content = `<div>${escapeHtml(bodyText)}</div>`;
-                }
-                
-                const time = msg.timestamp 
-                    ? new Date(msg.timestamp).toLocaleTimeString('en-US', { 
-                        hour: 'numeric', minute: 'numeric', hour12: true 
-                      }) 
-                    : '';
-                
-                messageElement.innerHTML = `
-                    <div class="flex flex-col">
-                        ${content}
-                        <div class="text-xs ${isSent ? 'text-gray-600' : 'text-gray-500'} mt-1 ${isSent ? 'text-right' : 'text-left'}">${time}</div>
-                    </div>
-                `;
-                messagesContainer.appendChild(messageElement);
-            });
+    } catch (e) {
+        console.error('fetchChats error:', e);
+        if (!lastChatData) {
+            document.getElementById('chats-container').innerHTML =
+                `<div class="state-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><p>Could not load chats. Retrying…</p></div>`;
         }
+    }
+}
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+// ─── RENDER CHAT LIST ────────────────────────────────────
+function renderChats(chats) {
+    const container = document.getElementById('chats-container');
+    if (!chats.length) {
+        container.innerHTML = `<div class="state-empty"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><p>No conversations yet</p></div>`;
+        return;
+    }
 
-        async function markMessagesAsRead(waId) {
-            try {
-                const response = await fetch('/api/mark-read', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wa_id: waId, phone_id: phoneId })
-                });
-                const data = await response.json();
-                if (!response.ok) {
-                    console.error('❌ Error marking messages as read:', data.message);
-                }
-            } catch (error) {
-                console.error('❌ Error marking messages as read:', error);
+    container.innerHTML = '';
+    chats.forEach(chat => {
+        const unread  = chat.unread_count || 0;
+        const time    = chat.last_message_timestamp ? formatTime(chat.last_message_timestamp) : '';
+        const preview = (chat.last_body || 'No messages').substring(0, 48) + ((chat.last_body || '').length > 48 ? '…' : '');
+        const initial = (chat.name || '?')[0].toUpperCase();
+        const isActive = currentWaId === chat.wa_id;
+
+        const el = document.createElement('div');
+        el.className = `chat-item${isActive ? ' active' : ''}`;
+        el.dataset.waId = chat.wa_id;
+        el.innerHTML = `
+            <div class="avatar">${initial}</div>
+            <div class="chat-meta">
+                <div class="chat-top">
+                    <span class="chat-name${unread ? ' unread' : ''}">${escapeHtml(chat.name || 'Unknown')}</span>
+                    <span class="chat-time${unread ? ' unread' : ''}">${time}</span>
+                </div>
+                <div class="chat-phone">+${chat.wa_id}</div>
+                <div class="chat-preview-row">
+                    <span class="chat-preview${unread ? ' unread' : ''}">${escapeHtml(preview)}</span>
+                    ${unread ? `<span class="unread-badge">${unread}</span>` : ''}
+                </div>
+            </div>`;
+        el.addEventListener('click', () => openChat(chat.wa_id, chat.name));
+        container.appendChild(el);
+    });
+}
+
+// ─── OPEN CHAT ────────────────────────────────────────────
+async function openChat(waId, name, isPolling = false) {
+    const mc  = document.getElementById('messages-container');
+    const wasAtBottom = mc.scrollHeight - mc.scrollTop <= mc.clientHeight + 10;
+
+    currentWaId  = waId;
+    currentName  = name || waId;
+
+    // mobile: hide sidebar
+    if (window.innerWidth <= 768) {
+        document.getElementById('sidebar').classList.add('hidden');
+    }
+
+    // show chat UI
+    const ca = document.getElementById('chat-area');
+    ca.classList.remove('empty-state');
+    document.getElementById('chat-placeholder').style.display = 'none';
+    document.getElementById('chat-header').style.display      = 'flex';
+    document.getElementById('messages-container').style.display = 'flex';
+    document.getElementById('messages-container').style.flexDirection = 'column';
+    document.getElementById('input-area').style.display       = 'flex';
+
+    // header
+    const initial = currentName[0].toUpperCase();
+    document.getElementById('header-avatar').textContent = initial;
+    document.getElementById('header-name').textContent   = currentName;
+
+    // highlight sidebar item
+    document.querySelectorAll('.chat-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.waId === waId);
+    });
+
+    try {
+        const res  = await fetch(`/api/chats/${waId}?phone_id=${phoneId}`);
+        const data = await res.json();
+
+        const meta = lastChatData ? lastChatData.find(c => c.wa_id === waId) : null;
+        document.getElementById('header-sub').innerHTML = buildStatusText(meta?.last_message_timestamp);
+
+        if (data.messages && (JSON.stringify(data.messages) !== JSON.stringify(lastMessageData) || !isPolling)) {
+            lastMessageData = data.messages;
+            renderMessages(data.messages);
+            if (!isPolling || wasAtBottom) {
+                mc.scrollTop = mc.scrollHeight;
             }
         }
 
-        document.getElementById('message-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const messageInput = document.getElementById('message-input');
-            const message = messageInput.value.trim();
-            
-            console.log("=".repeat(60));
-            console.log("📤 SENDING MESSAGE");
-            console.log("=".repeat(60));
-            console.log("📱 Phone ID:", phoneId);
-            console.log("👤 Current WA ID:", currentWaId);
-            console.log("👤 Current Name:", currentContactName);
-            console.log("📝 Message:", message);
-            console.log("=".repeat(60));
-            
-            if (message && currentWaId && currentContactName) {
-                const tempMessage = {
-                    body: message,
-                    direction: 'outbound',
-                    timestamp: new Date().toISOString(),
-                    type: 'text',
-                    status: 'pending'
-                };
-                const tempMessages = lastMessageData ? [...lastMessageData, tempMessage] : [tempMessage];
-                displayMessages(tempMessages);
-                
-                const messagesContainer = document.getElementById('messages-container');
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                messageInput.value = '';
-
-                try {
-                    const payload = { 
-                        wa_id: currentWaId, 
-                        message, 
-                        phone_id: phoneId, 
-                        name: currentContactName 
-                    };
-                    
-                    console.log("🚀 Making API request to /api/respond");
-                    console.log("📦 Payload:", payload);
-                    
-                    const response = await fetch('/api/respond', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    
-                    console.log("📡 Response Status:", response.status);
-                    console.log("📡 Response OK:", response.ok);
-                    
-                    const data = await response.json();
-                    console.log("📄 Response Data:", data);
-                    
-                    if (response.ok) {
-                        console.log("✅ Message sent successfully!");
-                        loadMessages(currentWaId, currentContactName);
-                        fetchChats();
-                    } else {
-                        console.error('❌ Error sending message:', data.message);
-                        alert(`Failed to send message: ${data.message}`);
-                    }
-                } catch (error) {
-                    console.error('❌ Error sending message:', error);
-                    alert(`Error: ${error.message}`);
-                }
-            } else {
-                console.warn("⚠️ Cannot send message - missing data:");
-                console.warn("  - Message:", message ? "✓" : "✗");
-                console.warn("  - WA ID:", currentWaId ? "✓" : "✗");
-                console.warn("  - Name:", currentContactName ? "✓" : "✗");
-            }
-        });
-
-        document.getElementById('attach-image').addEventListener('click', () => {
-            document.getElementById('image-input').click();
-        });
-
-        document.getElementById('image-input').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (file && currentWaId && currentContactName) {
-                const caption = document.getElementById('message-input').value.trim();
-                
-                console.log("📤 Sending image:", file.name);
-                
-                const tempImageMessage = {
-                    body: caption || '📷 Image',
-                    image_url: URL.createObjectURL(file),
-                    direction: 'outbound',
-                    timestamp: new Date().toISOString(),
-                    type: 'image',
-                    status: 'pending'
-                };
-                const tempMessages = lastMessageData ? [...lastMessageData, tempImageMessage] : [tempImageMessage];
-                displayMessages(tempMessages);
-                
-                const messagesContainer = document.getElementById('messages-container');
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                document.getElementById('message-input').value = '';
-
-                const formData = new FormData();
-                formData.append('wa_id', currentWaId);
-                formData.append('phone_id', phoneId);
-                formData.append('image', file);
-                formData.append('caption', caption);
-                formData.append('name', currentContactName);
-
-                try {
-                    const response = await fetch('/api/send-image', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const data = await response.json();
-                    if (response.ok) {
-                        console.log("✅ Image sent successfully!");
-                        document.getElementById('image-input').value = '';
-                        loadMessages(currentWaId, currentContactName);
-                        fetchChats();
-                    } else {
-                        console.error('❌ Error sending image:', data.message);
-                        alert(`Failed to send image: ${data.message}`);
-                    }
-                } catch (error) {
-                    console.error('❌ Error sending image:', error);
-                    alert(`Error: ${error.message}`);
-                }
-            }
-        });
-
-        document.getElementById('back-to-chats').addEventListener('click', () => {
-            const chatArea = document.getElementById('chat-area');
-            const chatList = document.getElementById('chat-list');
-            
-            chatArea.classList.add('mobile-hidden');
-            chatArea.classList.remove('flex');
-            chatList.classList.remove('mobile-hidden');
-
-            currentWaId = null;
-            currentContactName = null;
-            lastMessageData = null;
+        if (!isPolling) {
+            await markRead(waId);
             fetchChats();
-        });
+        }
+    } catch (e) {
+        console.error('openChat error:', e);
+        if (!isPolling) showToast('Could not load messages');
+    }
+}
 
-        document.getElementById('search-input').addEventListener('input', (e) => {
-            const searchTerm = e.target.value.toLowerCase();
-            const chatElements = document.getElementById('chats-container').children;
-            Array.from(chatElements).forEach(chat => {
-                const nameEl = chat.querySelector('[class*="font-bold"], [class*="font-semibold"]');
-                if (nameEl) {
-                    const name = nameEl.textContent.toLowerCase();
-                    const preview = chat.querySelector('[class*="text-sm"]');
-                    const previewText = preview ? preview.textContent.toLowerCase() : '';
-                    chat.style.display = name.includes(searchTerm) || previewText.includes(searchTerm) ? '' : 'none';
-                }
-            });
-        });
+// ─── RENDER MESSAGES ─────────────────────────────────────
+function renderMessages(messages) {
+    const mc = document.getElementById('messages-container');
+    mc.innerHTML = '';
 
-        function startPolling() {
-            setInterval(async () => {
-                await fetchChats();
-                if (currentWaId && currentContactName) {
-                    await loadMessages(currentWaId, currentContactName, true);
-                }
-            }, 5000);
+    if (!messages || !messages.length) {
+        mc.innerHTML = `<div class="state-empty" style="flex:1;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg><p>No messages yet — start the conversation!</p></div>`;
+        return;
+    }
+
+    let lastDateLabel = '';
+
+    messages.forEach(msg => {
+        const label = formatDateLabel(msg.timestamp);
+        if (label !== lastDateLabel) {
+            lastDateLabel = label;
+            const div = document.createElement('div');
+            div.className = 'date-divider';
+            div.innerHTML = `<span>${label}</span>`;
+            mc.appendChild(div);
         }
 
-        console.log("🎬 Initializing app...");
-        fetchChats();
-        startPolling();
-        console.log("✅ App initialized successfully!");
-    </script>
+        const isSent = msg.direction === 'outbound';
+        const row = document.createElement('div');
+        row.className = `msg-row ${isSent ? 'sent' : 'received'}`;
+
+        // Build bubble content
+        let inner = '';
+
+        // Template badge for outbound template messages
+        if (isSent && msg.type === 'template') {
+            inner += `<div class="template-badge">🎟️ Access Card</div>`;
+        }
+
+        // Image
+        if (msg.image_url) {
+            inner += `<img class="bubble-image" src="${escapeHtml(msg.image_url)}" alt="Access card image"
+                onerror="this.style.display='none'"
+                onclick="openLightbox('${escapeHtml(msg.image_url)}')">`;
+        }
+
+        // Text body
+        if (msg.body && msg.body.trim()) {
+            inner += `<div class="bubble-text">${escapeHtml(msg.body)}</div>`;
+        }
+
+        // Footer: time + ticks
+        const time = msg.timestamp ? formatTime(msg.timestamp) : '';
+        inner += `<div class="bubble-footer">
+            <span class="bubble-time">${time}</span>
+            ${getTickHTML(msg.status, msg.direction)}
+        </div>`;
+
+        row.innerHTML = `<div class="bubble">${inner}</div>`;
+        mc.appendChild(row);
+    });
+}
+
+// ─── MARK READ ────────────────────────────────────────────
+async function markRead(waId) {
+    try {
+        await fetch('/api/mark-read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wa_id: waId, phone_id: phoneId })
+        });
+    } catch (e) { /* silent */ }
+}
+
+// ─── SEND TEXT ────────────────────────────────────────────
+async function sendText(message) {
+    if (!currentWaId || !message.trim()) return;
+
+    // Optimistic bubble
+    const tempMsg = {
+        body: message, direction: 'outbound',
+        timestamp: new Date().toISOString(),
+        type: 'text', status: 'sent'
+    };
+    renderMessages([...(lastMessageData || []), tempMsg]);
+    const mc = document.getElementById('messages-container');
+    mc.scrollTop = mc.scrollHeight;
+
+    try {
+        const res  = await fetch('/api/respond', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ wa_id: currentWaId, message, phone_id: phoneId, name: currentName })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            openChat(currentWaId, currentName);
+            fetchChats();
+        } else {
+            showToast(`Failed: ${data.message}`);
+        }
+    } catch (e) {
+        showToast('Error sending message');
+    }
+}
+
+// ─── SEND IMAGE ───────────────────────────────────────────
+async function sendImage(file) {
+    if (!currentWaId || !file) return;
+    const caption = document.getElementById('message-input').value.trim();
+
+    const tempMsg = {
+        body: caption || '📷 Image',
+        image_url: URL.createObjectURL(file),
+        direction: 'outbound',
+        timestamp: new Date().toISOString(),
+        type: 'image', status: 'sent'
+    };
+    renderMessages([...(lastMessageData || []), tempMsg]);
+    const mc = document.getElementById('messages-container');
+    mc.scrollTop = mc.scrollHeight;
+    document.getElementById('message-input').value = '';
+
+    const form = new FormData();
+    form.append('wa_id', currentWaId);
+    form.append('phone_id', phoneId);
+    form.append('image', file);
+    form.append('caption', caption);
+    form.append('name', currentName);
+
+    try {
+        const res  = await fetch('/api/send-image', { method: 'POST', body: form });
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('image-input').value = '';
+            openChat(currentWaId, currentName);
+            fetchChats();
+        } else {
+            showToast(`Image failed: ${data.message}`);
+        }
+    } catch (e) {
+        showToast('Error sending image');
+    }
+}
+
+// ─── LIGHTBOX ─────────────────────────────────────────────
+function openLightbox(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').classList.add('open');
+}
+document.getElementById('lightbox-close').addEventListener('click', () => {
+    document.getElementById('lightbox').classList.remove('open');
+});
+document.getElementById('lightbox').addEventListener('click', e => {
+    if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+});
+
+// ─── SEARCH ───────────────────────────────────────────────
+document.getElementById('search-input').addEventListener('input', e => {
+    const q = e.target.value.toLowerCase();
+    document.querySelectorAll('.chat-item').forEach(el => {
+        const name    = el.querySelector('.chat-name')?.textContent.toLowerCase() || '';
+        const preview = el.querySelector('.chat-preview')?.textContent.toLowerCase() || '';
+        el.style.display = (name.includes(q) || preview.includes(q)) ? '' : 'none';
+    });
+});
+
+// ─── SEND BUTTON ──────────────────────────────────────────
+document.getElementById('send-btn').addEventListener('click', () => {
+    const inp = document.getElementById('message-input');
+    const msg = inp.value.trim();
+    if (msg) { inp.value = ''; sendText(msg); }
+});
+document.getElementById('message-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const inp = document.getElementById('message-input');
+        const msg = inp.value.trim();
+        if (msg) { inp.value = ''; sendText(msg); }
+    }
+});
+
+// ─── ATTACH IMAGE ─────────────────────────────────────────
+document.getElementById('attach-btn').addEventListener('click', () => {
+    document.getElementById('image-input').click();
+});
+document.getElementById('image-input').addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) sendImage(file);
+});
+
+// ─── BACK BUTTON (mobile) ─────────────────────────────────
+document.getElementById('back-btn').addEventListener('click', () => {
+    document.getElementById('sidebar').classList.remove('hidden');
+    currentWaId = null; currentName = null; lastMessageData = null;
+    fetchChats();
+});
+
+// ─── POLLING ──────────────────────────────────────────────
+function startPolling() {
+    clearInterval(pollingTimer);
+    pollingTimer = setInterval(async () => {
+        await fetchChats();
+        if (currentWaId && currentName) {
+            await openChat(currentWaId, currentName, true);
+        }
+    }, 5000);
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+fetchChats();
+startPolling();
+</script>
 </body>
 </html>
