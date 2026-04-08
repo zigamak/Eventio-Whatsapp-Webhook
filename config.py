@@ -20,6 +20,9 @@ ACCOUNT1_PHONE_ID_PACKAGE = os.getenv("ACCOUNT1_PHONE_ID_PACKAGE")
 ACCOUNT2_ACCESS_TOKEN = os.getenv("ACCOUNT2_ACCESS_TOKEN")
 ACCOUNT2_PHONE_ID = os.getenv("ACCOUNT2_PHONE_ID")
 
+# Gemini AI configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
 # Database configuration
 DB_HOST = os.getenv("DB_HOST", "ep-quiet-mud-ad433srr-pooler.c-2.us-east-1.aws.neon.tech")
 DB_PORT = os.getenv("DB_PORT", "5432")

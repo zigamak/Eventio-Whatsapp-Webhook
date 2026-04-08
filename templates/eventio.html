@@ -92,6 +92,15 @@
             letter-spacing: .3px;
         }
 
+        .brand-phone {
+            color: rgba(255,255,255,.65);
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: .2px;
+            margin-top: 1px;
+            font-family: 'DM Mono', monospace;
+        }
+
         .header-actions {
             display: flex;
             gap: 4px;
@@ -680,7 +689,10 @@
         <div class="sidebar-header">
             <div class="brand">
                 <div class="brand-logo">🎟️</div>
-                <span class="brand-name">Eventio</span>
+                <div>
+                    <div class="brand-name">Eventio</div>
+                    <div class="brand-phone" id="brand-phone-display"></div>
+                </div>
             </div>
             <div class="header-actions">
                 <button class="icon-btn" title="New chat">
@@ -843,6 +855,24 @@ function formatTime(dateStr) {
     return new Date(dateStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
+// For sidebar chat list: show time if today, date if older
+function formatChatTime(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) {
+        return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    }
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    // Same year: show day + month
+    if (d.getFullYear() === today.getFullYear()) {
+        return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    }
+    // Different year: show day/month/year short
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
+}
+
 function escapeHtml(text) {
     const d = document.createElement('div');
     d.textContent = text;
@@ -901,7 +931,7 @@ function renderChats(chats) {
     container.innerHTML = '';
     chats.forEach(chat => {
         const unread  = chat.unread_count || 0;
-        const time    = chat.last_message_timestamp ? formatTime(chat.last_message_timestamp) : '';
+        const time    = chat.last_message_timestamp ? formatChatTime(chat.last_message_timestamp) : '';
         const preview = (chat.last_body || 'No messages').substring(0, 48) + ((chat.last_body || '').length > 48 ? '…' : '');
         const initial = (chat.name || '?')[0].toUpperCase();
         const isActive = currentWaId === chat.wa_id;
@@ -1138,11 +1168,16 @@ document.getElementById('lightbox').addEventListener('click', e => {
 
 // ─── SEARCH ───────────────────────────────────────────────
 document.getElementById('search-input').addEventListener('input', e => {
-    const q = e.target.value.toLowerCase();
+    const q = e.target.value.toLowerCase().replace(/\D/g, '') || e.target.value.toLowerCase();
+    const raw = e.target.value.toLowerCase();
     document.querySelectorAll('.chat-item').forEach(el => {
         const name    = el.querySelector('.chat-name')?.textContent.toLowerCase() || '';
         const preview = el.querySelector('.chat-preview')?.textContent.toLowerCase() || '';
-        el.style.display = (name.includes(q) || preview.includes(q)) ? '' : 'none';
+        const phone   = (el.dataset.waId || '').toLowerCase();
+        // Match by name/preview (text) OR phone digits
+        const matchesText  = name.includes(raw) || preview.includes(raw);
+        const matchesPhone = phone.includes(q.replace(/\D/g, '') || raw);
+        el.style.display = (matchesText || matchesPhone) ? '' : 'none';
     });
 });
 
@@ -1189,6 +1224,14 @@ function startPolling() {
 }
 
 // ─── INIT ─────────────────────────────────────────────────
+// Show active phone number in header
+(function() {
+    const el = document.getElementById('brand-phone-display');
+    if (el && phoneId && phoneId !== '{{ phone_id }}') {
+        el.textContent = '+' + phoneId.replace(/^\+/, '');
+    }
+})();
+
 fetchChats();
 startPolling();
 </script>

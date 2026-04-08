@@ -7,6 +7,7 @@ from config import (
     PACKAGE_ACCESS_TOKEN, ACCOUNT1_PHONE_ID_PACKAGE,
     ACCOUNT2_ACCESS_TOKEN, ACCOUNT2_PHONE_ID, VERSION
 )
+from utils.ai_responder import get_ai_response
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
@@ -373,6 +374,52 @@ def process_whatsapp_message(db_manager, body, phone_id):
                 }
                 save_message(db_manager, message_data, phone_id)
                 logger.info(f"Processed incoming text message from {wa_id}: {message_body}")
+
+                # ── AI auto-reply ──────────────────────────────────────────
+                try:
+                    # Fetch last 20 messages for this conversation as context (oldest first)
+                    history = db_manager.execute_query(
+                        f"""
+                        SELECT direction, body FROM {table_name}
+                        WHERE wa_id = %s
+                        ORDER BY timestamp DESC
+                        LIMIT 20
+                        """,
+                        (wa_id,),
+                        fetch=True
+                    )
+                    history = list(reversed(history)) if history else []
+
+                    # Pass guest name from webhook — no need to ask the user
+                    ai_reply = get_ai_response(message_body, history, guest_name=name)
+
+                    if ai_reply:
+                        payload = get_text_message_input(wa_id, ai_reply)
+                        ai_result = send_message(payload, phone_id)
+
+                        if ai_result and ai_result.get("messages"):
+                            reply_id = ai_result["messages"][0].get("id")
+                            reply_data = {
+                                "id": reply_id,
+                                "wa_id": wa_id,
+                                "name": name,
+                                "type": "text",
+                                "body": ai_reply,
+                                "timestamp": datetime.now(),
+                                "direction": "outbound",
+                                "status": "sent",
+                                "read": True,
+                                "image_url": None,
+                                "image_id": None
+                            }
+                            save_message(db_manager, reply_data, phone_id)
+                            logger.info(f"✅ AI reply sent and saved for {wa_id}")
+                        else:
+                            logger.error(f"❌ AI reply failed to send for {wa_id}")
+                except Exception as ai_err:
+                    logger.error(f"❌ AI auto-reply error (inbound message still saved): {ai_err}")
+                # ── end AI auto-reply ──────────────────────────────────────
+
                 return {"status": "success", "message_id": message["id"]}
             
             elif message_type == "image":
