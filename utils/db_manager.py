@@ -224,7 +224,8 @@ class DatabaseManager:
                         status VARCHAR(50),
                         read BOOLEAN,
                         image_url TEXT,
-                        image_id VARCHAR(255)
+                        image_id VARCHAR(255),
+                        error_details TEXT
                     )
                 """
             },
@@ -242,7 +243,8 @@ class DatabaseManager:
                         status VARCHAR(50),
                         read BOOLEAN,
                         image_url TEXT,
-                        image_id VARCHAR(255)
+                        image_id VARCHAR(255),
+                        error_details TEXT
                     )
                 """
             },
@@ -260,7 +262,8 @@ class DatabaseManager:
                         status VARCHAR(50),
                         read BOOLEAN,
                         image_url TEXT,
-                        image_id VARCHAR(255)
+                        image_id VARCHAR(255),
+                        error_details TEXT
                     )
                 """
             }
@@ -288,15 +291,15 @@ class DatabaseManager:
     def insert_message(self, table_name, message_data):
         """
         Insert a message directly into the specified table.
-        
+
         Args:
             table_name (str): Full table name including schema (e.g., 'public.eventio_messages')
             message_data (dict): Message data with all required fields
         """
         query = f"""
-            INSERT INTO {table_name} 
-            (id, wa_id, name, type, body, timestamp, direction, status, read, image_url, image_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO {table_name}
+            (id, wa_id, name, type, body, timestamp, direction, status, read, image_url, image_id, error_details)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO NOTHING
         """
         params = (
@@ -310,29 +313,45 @@ class DatabaseManager:
             message_data['status'],
             message_data['read'],
             message_data.get('image_url'),
-            message_data.get('image_id')
+            message_data.get('image_id'),
+            message_data.get('error_details'),
         )
         self.execute_query(query, params)
         logger.info(f"✅ Message saved to {table_name}: {message_data['id']}")
 
-    def update_message_status(self, table_name, message_id, status, read):
+    def update_message_status(self, table_name, message_id, status, read, error_details=None):
         """
         Update message status directly in the specified table.
-        
+
         Args:
             table_name (str): Full table name including schema
             message_id (str): Message ID to update
             status (str): New status
             read (bool): Read status
+            error_details (str): Optional Meta error details when status is 'failed'
         """
         query = f"""
             UPDATE {table_name}
-            SET status = %s, read = %s
+            SET status = %s, read = %s, error_details = %s
             WHERE id = %s
         """
-        params = (status, read, message_id)
+        params = (status, read, error_details, message_id)
         self.execute_query(query, params)
         logger.info(f"✅ Updated message status in {table_name}: {message_id} -> {status}")
+
+    def migrate_add_error_details(self, schema='public'):
+        """
+        Add error_details column to existing tables if it does not already exist.
+        Called automatically on startup so existing deployments are migrated safely.
+        """
+        tables = ['eventio_messages', 'package_with_sense_messages', 'ignitiohub_messages']
+        for table in tables:
+            try:
+                query = f"ALTER TABLE {schema}.{table} ADD COLUMN IF NOT EXISTS error_details TEXT"
+                self.execute_query(query)
+                logger.info(f"✅ Migration OK — {schema}.{table}.error_details")
+            except Exception as e:
+                logger.error(f"❌ Migration failed for {schema}.{table}: {e}")
 
     def __del__(self):
         """Destructor to ensure database connection is closed."""
@@ -356,6 +375,8 @@ try:
     # Test the connection on startup
     if db_manager.test_connection():
         logger.info("✅ Database manager initialized successfully")
+        # Migrate existing tables to add error_details column if missing
+        db_manager.migrate_add_error_details()
     else:
         logger.error("❌ Database manager initialization failed - connection test failed")
         

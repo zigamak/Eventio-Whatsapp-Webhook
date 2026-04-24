@@ -427,18 +427,35 @@ def process_whatsapp_message(db_manager, body, phone_id):
             
             else:
                 logger.debug(f"Ignoring unsupported message type: {message_type} from {wa_id}")
-                return None
+                return {"status": "ignored", "message_type": message_type}
         
         elif "statuses" in change:
             status = change["statuses"][0]
             message_id = status.get('id')
             new_status = status.get('status')
-            
+            error_details = None
+
+            if new_status == 'failed':
+                errors = status.get('errors', [])
+                if errors:
+                    e = errors[0]
+                    error_details = (
+                        f"Code: {e.get('code')} | "
+                        f"Title: {e.get('title')} | "
+                        f"Message: {e.get('message')} | "
+                        f"Error Data: {e.get('error_data', {})}"
+                    )
+                    logger.error(f"❌ Meta delivery FAILED for {message_id} | {error_details}")
+                else:
+                    error_details = "Meta returned failed status with no error details"
+                    logger.error(f"❌ Meta delivery FAILED for {message_id} — no error details in payload")
+
             db_manager.update_message_status(
                 table_name,
                 message_id,
                 new_status,
-                new_status == 'read'
+                new_status == 'read',
+                error_details
             )
             logger.info(f"Updated message status. ID: {message_id}, Status: {new_status}")
             return {"status": "success", "message_id": message_id}
