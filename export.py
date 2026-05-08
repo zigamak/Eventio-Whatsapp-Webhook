@@ -1,8 +1,6 @@
 import os
 import csv
-import json
 import logging
-from datetime import date
 from dotenv import load_dotenv
 
 import sys
@@ -30,13 +28,87 @@ def get_connection():
         user=os.getenv('DB_USER', 'neondb_owner'),
         password=os.getenv('DB_PASSWORD', 'npg_SIgb5lKTF3Dz'),
         sslmode=os.getenv('DB_SSLMODE', 'require'),
-        # channel_binding is NOT supported by Neon's pooler — omit it here
     )
 
-# ── Date range ────────────────────────────────────────────────────────────────
+# ── Target wa_id list ─────────────────────────────────────────────────────────
 
-START_DATE = date(2026, 3, 1)
-END_DATE   = date(2026, 3, 1)
+RAW_IDS = [
+    "8055614455", "2348023349149", "2348033224896", "8069182932",
+    "8058008469", "8034330353", "809427637", "8036015537",
+    "8102212910", "8033338004", "8023080412", "8055740094",
+    "8103794369", "8067405013", "8028899019", "8138590077",
+    "8032030977", "8053439111", "8105671052", "8081801950",
+    "8023096720", "8023210867", "8033259896", "7057141698",
+    "2348033099383", "8025017744", "8023349149", "8033430808",
+    "8034294960", "9095966116", "8037115736", "8056029065",
+    "8035074787", "8022234419", "9117777778", "8137541811",
+    "8023128492", "8033065978", "8023080248", "2347034456697",
+    "8186780635", "9099156072", "8033076880", "8053815099",
+    "8036767678", "8023159077", "8061103506", "8085893830",
+    "8056434758", "8034302842", "8032002025", "8036187424",
+    "8094000063", "7051399366", "8033075160", "7067341334",
+    "8037024916", "7025026000", "8032252298", "8082305428",
+    "8061127708", "8023061600", "iobakin71@gmail.com", "7039833358",
+    "8036799510", "8132770575", "8035621942", "8023135000",
+    "9060004565", "8023015334", "8033116373", "8023151405",
+    "8023037251", "7038435946", "8139269177", "8128259498",
+    "8062073783", "8023015406", "8037226788", "8034023791",
+    "8188557338", "8080358916", "8094556175", "8131333442",
+    "9115927038", "8038220248", "8093340011", "7083897480",
+    "9099670421", "8035354000", "8083100520", "8038852446",
+    "8086239485", "9096851318", "8062136090", "8023251185",
+    "8033745448", "8062076127", "8033279495", "7034863734",
+    "8032555246", "8033338370", "8025616767", "8032148860",
+    "8132363986", "8175102620", "8035859585", "8166350570",
+    "8093646473", "8033598153", "8055025834", "8023037318",
+    "8023168955", "8027782711", "8127843938", "8034762000",
+    "7034532485", "8087595910", "7039278266", "8034063604",
+    "8054245204", "9014506823", "8036547901", "8033425882",
+    "7088881020", "8034105875", "8052305661", "8068335464",
+    "8023125437", "8039127186", "8033804152", "8055069331",
+    "7030128958", "8030481331", "8150421256", "8023537740",
+    "8186227855", "8132479961", "7081376902", "8033314242",
+    "8053262568", "8023014931", "8023311605", "9133884803",
+    "8035192117", "8062961968", "8033320255", "8099450095",
+    "9016030374", "2348023813905", "8079715690", "8033260246",
+    "8064525791", "9167941965", "8035356060", "8023290706",
+    "8023294508", "8023017303", "8052044739", "8023256365",
+    "8023415001", "8023314205", "8059622051", "8067782718",
+    "8033287790", "8064323506", "810025819", "8070890553",
+    "8036719456", "9029999196", "2347015212937", "2347013133522",
+    "8025370775", "8163423097", "8034274516", "8033064453",
+    "8033208183", "8033203047", "8033371555", "8067477933",
+    "7082130678", "8033552912", "8166853765", "8078506094",
+    "7033243137", "8101058691", "8033082382", "8023234055",
+    "9167589756", "2348038220600", "8052466700",
+]
+
+# Deduplicate while preserving order
+seen = set()
+RAW_IDS = [x for x in RAW_IDS if not (x in seen or seen.add(x))]
+
+
+def build_id_variants(raw_ids):
+    variants = set()
+    for rid in raw_ids:
+        rid = rid.strip()
+        variants.add(rid)
+        if rid.startswith("234") and len(rid) > 3:
+            local = rid[3:]
+            variants.add(local)
+            variants.add("0" + local)
+        if rid.startswith("234"):
+            variants.add("+" + rid)
+        if len(rid) == 10 and rid[0] in ("7", "8", "9"):
+            variants.add("234" + rid)
+            variants.add("+234" + rid)
+        if len(rid) == 11 and rid.startswith("0"):
+            variants.add("234" + rid[1:])
+            variants.add("+234" + rid[1:])
+    return list(variants)
+
+
+ALL_VARIANTS = build_id_variants(RAW_IDS)
 
 QUERY = """
     SELECT
@@ -52,11 +124,11 @@ QUERY = """
         image_url,
         image_id
     FROM public.eventio_messages
-    WHERE timestamp::date BETWEEN %s AND %s
-    ORDER BY timestamp ASC;
+    WHERE wa_id = ANY(%s)
+    ORDER BY wa_id ASC, timestamp ASC;
 """
 
-# ── Export helpers ────────────────────────────────────────────────────────────
+# ── Export ────────────────────────────────────────────────────────────────────
 
 def export_csv(rows, filepath):
     if not rows:
@@ -70,72 +142,12 @@ def export_csv(rows, filepath):
             writer.writerow(dict(row))
     logger.info(f"✅ CSV exported → {filepath}  ({len(rows)} rows)")
 
-
-def export_json(rows, filepath):
-    if not rows:
-        logger.warning("No rows to export — JSON will not be created.")
-        return
-    data = []
-    for row in rows:
-        d = dict(row)
-        if hasattr(d.get('timestamp'), 'isoformat'):
-            d['timestamp'] = d['timestamp'].isoformat()
-        data.append(d)
-    with open(filepath, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    logger.info(f"✅ JSON exported → {filepath}  ({len(rows)} rows)")
-
-
-def export_conversations_txt(rows, filepath):
-    """
-    Groups messages by wa_id and writes a human-readable conversation
-    transcript, showing the date alongside each message timestamp.
-    """
-    if not rows:
-        logger.warning("No rows to export — TXT will not be created.")
-        return
-
-    conversations: dict[str, list] = {}
-    for row in rows:
-        key = row['wa_id'] or 'unknown'
-        conversations.setdefault(key, []).append(dict(row))
-
-    date_range_str = (
-        f"{START_DATE.strftime('%d %B %Y')} – {END_DATE.strftime('%d %B %Y')}"
-    )
-
-    with open(filepath, 'w', encoding='utf-8') as f:
-        f.write(f"Eventio Messages — {date_range_str}\n")
-        f.write("=" * 60 + "\n\n")
-
-        for wa_id, messages in conversations.items():
-            contact_name = messages[0].get('name') or wa_id
-            f.write(f"Conversation with: {contact_name}  ({wa_id})\n")
-            f.write("-" * 60 + "\n")
-
-            for msg in messages:
-                ts = msg['timestamp']
-                ts_str = ts.strftime('%d %b %H:%M:%S') if hasattr(ts, 'strftime') else str(ts)
-                direction = (msg.get('direction') or '').upper()
-                body = msg.get('body') or ''
-                msg_type = msg.get('type', 'text')
-
-                if msg_type == 'image':
-                    body = f"[IMAGE] {msg.get('image_url') or msg.get('image_id') or ''}"
-
-                arrow = '→' if direction == 'OUTBOUND' else '←'
-                f.write(f"  [{ts_str}] {arrow} {body}\n")
-
-            f.write("\n")
-
-    logger.info(f"✅ Conversation transcript exported → {filepath}  ({len(conversations)} conversations)")
-
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
     logger.info(
-        f"Connecting to database and fetching eventio_messages "
-        f"from {START_DATE} to {END_DATE} …"
+        f"Connecting to database — fetching ALL messages "
+        f"for {len(RAW_IDS)} target contacts ({len(ALL_VARIANTS)} wa_id variants) …"
     )
 
     try:
@@ -146,27 +158,28 @@ def main():
 
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(QUERY, (START_DATE, END_DATE))
+            cur.execute(QUERY, (ALL_VARIANTS,))
             rows = cur.fetchall()
     finally:
         conn.close()
 
-    logger.info(f"Fetched {len(rows)} message(s) between {START_DATE} and {END_DATE}")
+    matched_ids = set(row['wa_id'] for row in rows)
+    logger.info(f"Fetched {len(rows)} message(s) across {len(matched_ids)} unique wa_id(s)")
+
+    if matched_ids:
+        logger.info(f"Matched wa_ids: {sorted(matched_ids)}")
+
+    unmatched = [rid for rid in RAW_IDS if not any(
+        rid in v or v in rid for v in matched_ids
+    )]
+    if unmatched:
+        logger.warning(f"⚠️  No messages found for {len(unmatched)} requested ID(s): {unmatched}")
 
     if not rows:
-        logger.warning(f"No messages found between {START_DATE} and {END_DATE}. Exiting.")
+        logger.warning("No messages found at all. Exiting.")
         return
 
-    # Output filenames reflect the full range
-    range_str = f"{START_DATE.strftime('%Y-%m-%d')}_to_{END_DATE.strftime('%Y-%m-%d')}"
-    csv_path  = f"eventio_messages_{range_str}.csv"
-    json_path = f"eventio_messages_{range_str}.json"
-    txt_path  = f"eventio_conversations_{range_str}.txt"
-
-    export_csv(rows, csv_path)
-    export_json(rows, json_path)
-    export_conversations_txt(rows, txt_path)
-
+    export_csv(rows, "eventio_messages_filtered.csv")
     logger.info("Done.")
 
 
