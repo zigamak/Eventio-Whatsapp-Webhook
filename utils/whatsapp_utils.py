@@ -285,7 +285,9 @@ def process_image_message(db_manager, message_data, contact_info, phone_id):
             "status": "delivered",
             "read": False,
             "image_url": image_url,
-            "image_id": image_id
+            "image_id": image_id,
+            "event_id": None,
+            "template_name": None,
         }
         
         save_message(db_manager, message_info, phone_id)
@@ -370,7 +372,9 @@ def process_whatsapp_message(db_manager, body, phone_id):
                     "status": "delivered",
                     "read": False,
                     "image_url": None,
-                    "image_id": None
+                    "image_id": None,
+                    "event_id": None,       # linked later via /api/events/{id}/link-inbound
+                    "template_name": None,
                 }
                 save_message(db_manager, message_data, phone_id)
                 logger.info(f"Processed incoming text message from {wa_id}: {message_body}")
@@ -410,7 +414,9 @@ def process_whatsapp_message(db_manager, body, phone_id):
                                 "status": "sent",
                                 "read": True,
                                 "image_url": None,
-                                "image_id": None
+                                "image_id": None,
+                                "event_id": None,
+                                "template_name": None,
                             }
                             save_message(db_manager, reply_data, phone_id)
                             logger.info(f"✅ AI reply sent and saved for {wa_id}")

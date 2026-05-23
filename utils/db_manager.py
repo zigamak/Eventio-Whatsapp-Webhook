@@ -225,7 +225,9 @@ class DatabaseManager:
                         read BOOLEAN,
                         image_url TEXT,
                         image_id VARCHAR(255),
-                        error_details TEXT
+                        error_details TEXT,
+                        event_id INTEGER,
+                        template_name VARCHAR(255)
                     )
                 """
             },
@@ -244,7 +246,9 @@ class DatabaseManager:
                         read BOOLEAN,
                         image_url TEXT,
                         image_id VARCHAR(255),
-                        error_details TEXT
+                        error_details TEXT,
+                        event_id INTEGER,
+                        template_name VARCHAR(255)
                     )
                 """
             },
@@ -263,7 +267,9 @@ class DatabaseManager:
                         read BOOLEAN,
                         image_url TEXT,
                         image_id VARCHAR(255),
-                        error_details TEXT
+                        error_details TEXT,
+                        event_id INTEGER,
+                        template_name VARCHAR(255)
                     )
                 """
             }
@@ -298,8 +304,9 @@ class DatabaseManager:
         """
         query = f"""
             INSERT INTO {table_name}
-            (id, wa_id, name, type, body, timestamp, direction, status, read, image_url, image_id, error_details)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            (id, wa_id, name, type, body, timestamp, direction, status, read,
+             image_url, image_id, error_details, event_id, template_name)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO NOTHING
         """
         params = (
@@ -315,6 +322,8 @@ class DatabaseManager:
             message_data.get('image_url'),
             message_data.get('image_id'),
             message_data.get('error_details'),
+            message_data.get('event_id'),       # None for inbound/unknown
+            message_data.get('template_name'),  # None unless set by PHP
         )
         self.execute_query(query, params)
         logger.info(f"✅ Message saved to {table_name}: {message_data['id']}")
@@ -353,6 +362,28 @@ class DatabaseManager:
             except Exception as e:
                 logger.error(f"❌ Migration failed for {schema}.{table}: {e}")
 
+    def migrate_add_event_columns(self, schema='public'):
+        """
+        Add event_id and template_name columns to existing tables if missing.
+        Called automatically on startup — safe to run repeatedly (IF NOT EXISTS).
+        """
+        tables = ['eventio_messages', 'package_with_sense_messages', 'ignitiohub_messages']
+        for table in tables:
+            try:
+                self.execute_query(
+                    f"ALTER TABLE {schema}.{table} ADD COLUMN IF NOT EXISTS event_id INTEGER"
+                )
+                self.execute_query(
+                    f"ALTER TABLE {schema}.{table} ADD COLUMN IF NOT EXISTS template_name VARCHAR(255)"
+                )
+                # Index so per-event queries stay fast even as rows grow
+                self.execute_query(
+                    f"CREATE INDEX IF NOT EXISTS idx_{table}_event_id ON {schema}.{table}(event_id)"
+                )
+                logger.info(f"✅ Migration OK — {schema}.{table}: event_id, template_name, index")
+            except Exception as e:
+                logger.error(f"❌ Migration failed for {schema}.{table}: {e}")
+
     def __del__(self):
         """Destructor to ensure database connection is closed."""
         try:
@@ -375,8 +406,9 @@ try:
     # Test the connection on startup
     if db_manager.test_connection():
         logger.info("✅ Database manager initialized successfully")
-        # Migrate existing tables to add error_details column if missing
+        # Migrate existing tables to add missing columns
         db_manager.migrate_add_error_details()
+        db_manager.migrate_add_event_columns()
     else:
         logger.error("❌ Database manager initialization failed - connection test failed")
         

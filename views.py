@@ -340,7 +340,9 @@ def log_outbound():
         message_body = data.get('body', '')
         message_id = data.get('message_id')
         message_type = data.get('type', 'template')
-        image_url = data.get('image_url', None)  # image URL from column G
+        image_url = data.get('image_url', None)
+        event_id = data.get('event_id', None)          # ← from PHP sendWhatsAppCards()
+        template_name = data.get('template_name', None) # ← optional, for audit trail
 
         if not wa_id or not phone_id or not message_id:
             return jsonify({'status': 'error', 'message': 'wa_id, phone_id, and message_id required'}), 400
@@ -357,13 +359,249 @@ def log_outbound():
             'status': 'sent',
             'read': False,
             'image_url': image_url,
-            'image_id': None
+            'image_id': None,
+            'event_id': event_id,           # ← new
+            'template_name': template_name, # ← new
         }
 
         db_manager.insert_message(table_name, message_data)
-        logger.info(f"✅ Logged outbound message {message_id} for {wa_id} ({name})")
+        logger.info(f"✅ Logged outbound message {message_id} for {wa_id} ({name}) event_id={event_id}")
         return jsonify({'status': 'success'})
 
     except Exception as e:
         logger.error(f"Error logging outbound message: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+# ─── EVENT-SCOPED ENDPOINTS ───────────────────────────────────────────────────
+# All routes below query by event_id so the PHP dashboard can pull
+# per-event WhatsApp data from Postgres without caring which table it's in.
+
+@bp.route('/api/events/<int:event_id>/messages', methods=['GET'])
+def get_event_messages(event_id):
+    """All WhatsApp messages for a specific event (outbound + inbound replies)."""
+    try:
+        phone_id = request.args.get('phone_id')
+        direction = request.args.get('direction')        # 'inbound' | 'outbound' | None (all)
+        status = request.args.get('status')              # 'sent' | 'failed' | 'delivered' | 'read'
+        limit = min(int(request.args.get('limit', 200)), 1000)
+
+        if not phone_id:
+            return jsonify({'status': 'error', 'message': 'phone_id required'}), 400
+
+        table_name = get_table_name(phone_id)
+
+        filters = ["event_id = %s"]
+        params = [event_id]
+
+        if direction:
+            filters.append("direction = %s")
+            params.append(direction)
+        if status:
+            filters.append("status = %s")
+            params.append(status)
+
+        where = " AND ".join(filters)
+        params.append(limit)
+
+        query = f"""
+            SELECT id, wa_id, name, type, body, timestamp, direction,
+                   status, read, image_url, event_id, template_name, error_details
+            FROM {table_name}
+            WHERE {where}
+            ORDER BY timestamp DESC
+            LIMIT %s
+        """
+
+        messages = db_manager.execute_query(query, tuple(params), fetch=True)
+        return jsonify({'status': 'success', 'event_id': event_id, 'messages': messages})
+
+    except Exception as e:
+        logger.error(f"Error fetching event messages for event_id={event_id}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@bp.route('/api/events/<int:event_id>/conversations', methods=['GET'])
+def get_event_conversations(event_id):
+    """
+    All conversations for an event, grouped by guest (wa_id).
+    Returns one row per guest with their last message, unread count,
+    and delivery status — ready to drive a dashboard conversation list.
+    """
+    try:
+        phone_id = request.args.get('phone_id')
+        if not phone_id:
+            return jsonify({'status': 'error', 'message': 'phone_id required'}), 400
+
+        table_name = get_table_name(phone_id)
+
+        query = f"""
+            WITH last_msg AS (
+                SELECT DISTINCT ON (wa_id)
+                    wa_id, name, body AS last_body,
+                    timestamp AS last_ts, direction AS last_direction,
+                    status AS last_status
+                FROM {table_name}
+                WHERE event_id = %s
+                ORDER BY wa_id, timestamp DESC
+            ),
+            unread AS (
+                SELECT wa_id, COUNT(*) AS unread_count
+                FROM {table_name}
+                WHERE event_id = %s AND direction = 'inbound' AND read = FALSE
+                GROUP BY wa_id
+            ),
+            sent_status AS (
+                SELECT wa_id,
+                    COUNT(*) FILTER (WHERE direction = 'outbound')               AS total_sent,
+                    COUNT(*) FILTER (WHERE direction = 'outbound' AND status = 'delivered') AS delivered,
+                    COUNT(*) FILTER (WHERE direction = 'outbound' AND status = 'read')      AS read_count,
+                    COUNT(*) FILTER (WHERE direction = 'outbound' AND status = 'failed')    AS failed,
+                    COUNT(*) FILTER (WHERE direction = 'inbound')                AS replies
+                FROM {table_name}
+                WHERE event_id = %s
+                GROUP BY wa_id
+            )
+            SELECT
+                lm.wa_id, lm.name,
+                lm.last_body, lm.last_ts, lm.last_direction, lm.last_status,
+                COALESCE(u.unread_count, 0) AS unread_count,
+                COALESCE(ss.total_sent, 0)  AS total_sent,
+                COALESCE(ss.delivered, 0)   AS delivered,
+                COALESCE(ss.read_count, 0)  AS read_count,
+                COALESCE(ss.failed, 0)      AS failed,
+                COALESCE(ss.replies, 0)     AS replies
+            FROM last_msg lm
+            LEFT JOIN unread    u  ON u.wa_id  = lm.wa_id
+            LEFT JOIN sent_status ss ON ss.wa_id = lm.wa_id
+            ORDER BY lm.last_ts DESC
+        """
+
+        conversations = db_manager.execute_query(query, (event_id, event_id, event_id), fetch=True)
+        return jsonify({'status': 'success', 'event_id': event_id, 'conversations': conversations})
+
+    except Exception as e:
+        logger.error(f"Error fetching conversations for event_id={event_id}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@bp.route('/api/events/<int:event_id>/conversations/<wa_id>', methods=['GET'])
+def get_event_guest_thread(event_id, wa_id):
+    """
+    Full message thread for one guest within an event.
+    Includes both directions so you can render a chat view.
+    Also marks inbound messages as read.
+    """
+    try:
+        phone_id = request.args.get('phone_id')
+        if not phone_id:
+            return jsonify({'status': 'error', 'message': 'phone_id required'}), 400
+
+        table_name = get_table_name(phone_id)
+
+        messages = db_manager.execute_query(f"""
+            SELECT id, wa_id, name, type, body, timestamp, direction,
+                   status, read, image_url, template_name, error_details
+            FROM {table_name}
+            WHERE event_id = %s AND wa_id = %s
+            ORDER BY timestamp ASC
+        """, (event_id, wa_id), fetch=True)
+
+        # Mark inbound messages as read now that they're being viewed
+        db_manager.execute_query(f"""
+            UPDATE {table_name}
+            SET read = TRUE
+            WHERE event_id = %s AND wa_id = %s AND direction = 'inbound' AND read = FALSE
+        """, (event_id, wa_id))
+
+        return jsonify({'status': 'success', 'event_id': event_id, 'wa_id': wa_id, 'messages': messages})
+
+    except Exception as e:
+        logger.error(f"Error fetching thread event_id={event_id} wa_id={wa_id}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@bp.route('/api/events/<int:event_id>/stats', methods=['GET'])
+def get_event_stats(event_id):
+    """
+    Delivery + engagement stats for an event.
+    Useful for the dashboard summary card.
+    """
+    try:
+        phone_id = request.args.get('phone_id')
+        if not phone_id:
+            return jsonify({'status': 'error', 'message': 'phone_id required'}), 400
+
+        table_name = get_table_name(phone_id)
+
+        stats = db_manager.execute_query(f"""
+            SELECT
+                COUNT(*)                                                          AS total_messages,
+                COUNT(*) FILTER (WHERE direction = 'outbound')                    AS sent,
+                COUNT(*) FILTER (WHERE direction = 'outbound' AND status = 'delivered') AS delivered,
+                COUNT(*) FILTER (WHERE direction = 'outbound' AND status = 'read')      AS read_by_guest,
+                COUNT(*) FILTER (WHERE direction = 'outbound' AND status = 'failed')    AS failed,
+                COUNT(*) FILTER (WHERE direction = 'inbound')                     AS replies,
+                COUNT(DISTINCT wa_id) FILTER (WHERE direction = 'outbound')       AS unique_guests_messaged,
+                COUNT(DISTINCT wa_id) FILTER (WHERE direction = 'inbound')        AS unique_guests_replied,
+                MIN(timestamp) FILTER (WHERE direction = 'outbound')              AS first_sent_at,
+                MAX(timestamp) FILTER (WHERE direction = 'outbound')              AS last_sent_at
+            FROM {table_name}
+            WHERE event_id = %s
+        """, (event_id,), fetch=True)
+
+        # Also get top errors if any failures
+        errors = db_manager.execute_query(f"""
+            SELECT error_details, COUNT(*) AS occurrences
+            FROM {table_name}
+            WHERE event_id = %s AND direction = 'outbound' AND status = 'failed'
+              AND error_details IS NOT NULL
+            GROUP BY error_details
+            ORDER BY occurrences DESC
+            LIMIT 10
+        """, (event_id,), fetch=True)
+
+        return jsonify({
+            'status': 'success',
+            'event_id': event_id,
+            'stats': stats[0] if stats else {},
+            'top_errors': errors,
+        })
+
+    except Exception as e:
+        logger.error(f"Error fetching stats for event_id={event_id}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@bp.route('/api/events/<int:event_id>/link-inbound', methods=['POST'])
+def link_inbound_to_event(event_id):
+    """
+    Backfill: link inbound replies (event_id IS NULL) to this event
+    by matching wa_id against outbound messages already tagged with event_id.
+    Safe to call repeatedly — only touches rows where event_id IS NULL.
+    """
+    try:
+        phone_id = request.args.get('phone_id') or request.get_json(silent=True, force=True).get('phone_id')
+        if not phone_id:
+            return jsonify({'status': 'error', 'message': 'phone_id required'}), 400
+
+        table_name = get_table_name(phone_id)
+
+        result = db_manager.execute_query(f"""
+            UPDATE {table_name} inbound
+            SET event_id = outbound.event_id
+            FROM (
+                SELECT DISTINCT wa_id, event_id
+                FROM {table_name}
+                WHERE event_id = %s AND direction = 'outbound'
+            ) outbound
+            WHERE inbound.event_id IS NULL
+              AND inbound.direction = 'inbound'
+              AND inbound.wa_id = outbound.wa_id
+        """, (event_id,))
+
+        return jsonify({'status': 'success', 'event_id': event_id, 'message': 'Inbound replies linked'})
+
+    except Exception as e:
+        logger.error(f"Error linking inbound messages for event_id={event_id}: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
