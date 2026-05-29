@@ -1,6 +1,6 @@
 import os
 import csv
-import logging
+from datetime import date, timedelta
 from dotenv import load_dotenv
 
 import psycopg2
@@ -12,17 +12,8 @@ from psycopg2.extras import RealDictCursor
 
 load_dotenv()
 
-# ─────────────────────────────────────────────────────────────
-# Logging
-# ─────────────────────────────────────────────────────────────
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S"
-)
-
-logger = logging.getLogger(__name__)
+TODAY = date.today().isoformat()
+YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
 
 # ─────────────────────────────────────────────────────────────
 # Database Connection
@@ -39,10 +30,10 @@ def get_connection():
     )
 
 # ─────────────────────────────────────────────────────────────
-# SQL Query
+# Query 1 — Messages that FAILED
 # ─────────────────────────────────────────────────────────────
 
-QUERY = """
+QUERY_FAILED = f"""
     SELECT
         id,
         wa_id,
@@ -51,18 +42,52 @@ QUERY = """
         body,
         timestamp,
         direction,
-        CASE
-            WHEN direction = 'inbound'  THEN 'Inbound'
-            WHEN direction = 'outbound' THEN 'Outbound'
-            ELSE 'Unknown'
-        END AS direction_label,
         status,
-        read,
-        image_url,
-        image_id
+        error_details,
+        template_name,
+        event_id
     FROM public.eventio_messages
-    WHERE timestamp >= '2026-05-21'
+    WHERE status = 'failed'
+      AND timestamp >= '{YESTERDAY}'::timestamp
+      AND timestamp < ('{TODAY}'::timestamp + INTERVAL '1 day')
     ORDER BY timestamp ASC;
+"""
+
+# ─────────────────────────────────────────────────────────────
+# Query 2 — All messages for wa_ids that have duplicate entries
+# (same number used more than once — same or different names)
+# ─────────────────────────────────────────────────────────────
+
+QUERY_DUPLICATES = f"""
+    SELECT
+        m.id,
+        m.wa_id,
+        m.name,
+        m.type,
+        m.body,
+        m.timestamp,
+        m.direction,
+        m.status,
+        m.error_details,
+        m.template_name,
+        m.event_id,
+        dup.total_entries,
+        dup.distinct_names,
+        dup.all_names
+    FROM public.eventio_messages m
+    INNER JOIN (
+        SELECT
+            wa_id,
+            COUNT(*)                                        AS total_entries,
+            COUNT(DISTINCT name)                            AS distinct_names,
+            STRING_AGG(DISTINCT name, ' / ' ORDER BY name) AS all_names
+        FROM public.eventio_messages
+        GROUP BY wa_id
+        HAVING COUNT(*) > 1
+    ) dup ON m.wa_id = dup.wa_id
+    WHERE m.timestamp >= '{YESTERDAY}'::timestamp
+      AND m.timestamp < ('{TODAY}'::timestamp + INTERVAL '1 day')
+    ORDER BY m.wa_id, m.timestamp ASC;
 """
 
 # ─────────────────────────────────────────────────────────────
@@ -71,61 +96,60 @@ QUERY = """
 
 def export_csv(rows, filepath):
     if not rows:
-        logger.warning("No rows found to export.")
+        print(f"  No rows — skipping {filepath}")
         return
 
     fieldnames = rows[0].keys()
-
-    with open(filepath, mode="w", newline="", encoding="utf-8") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+    with open(filepath, mode="w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for row in rows:
             writer.writerow(dict(row))
 
-    logger.info(f"✅ CSV exported successfully → {filepath}")
+    print(f"  Exported {len(rows)} rows → {filepath}")
 
 # ─────────────────────────────────────────────────────────────
 # Main Function
 # ─────────────────────────────────────────────────────────────
 
 def main():
-    logger.info("Connecting to database...")
-
     try:
         conn = get_connection()
-        logger.info("✅ Database connection successful")
-
+        print("Connected to database.")
     except Exception as e:
-        logger.error(f"❌ Failed to connect to database: {e}")
+        print(f"Failed to connect to database: {e}")
         return
 
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
 
-            logger.info("Fetching eventio messages from 20th May 2026 onwards...")
+            # --- Failed messages ---
+            print("\n[1/2] Fetching failed messages...")
+            try:
+                cur.execute(QUERY_FAILED)
+                failed_rows = cur.fetchall()
+            except Exception as e:
+                print(f"  Query failed: {e}")
+                failed_rows = []
 
-            cur.execute(QUERY)
-            rows = cur.fetchall()
-
-            logger.info(f"✅ Retrieved {len(rows)} message(s)")
-
-    except Exception as e:
-        logger.error(f"❌ Query failed: {e}")
-        return
+            # --- Duplicate wa_id messages ---
+            print("[2/2] Fetching duplicate wa_id messages...")
+            try:
+                cur.execute(QUERY_DUPLICATES)
+                duplicate_rows = cur.fetchall()
+            except Exception as e:
+                print(f"  Query failed: {e}")
+                duplicate_rows = []
 
     finally:
         conn.close()
-        logger.info("Database connection closed.")
 
-    if not rows:
-        logger.warning("No messages found from 20th May 2026 onwards.")
-        return
+    # --- Export ---
+    print("\nExporting CSVs...")
+    export_csv(failed_rows,    f"failed_messages_{YESTERDAY}_to_{TODAY}.csv")
+    export_csv(duplicate_rows, f"duplicate_wa_id_messages_{YESTERDAY}_to_{TODAY}.csv")
 
-    filename = "eventio_messages_from_2026-05-21.csv"
-
-    export_csv(rows, filename)
-
-    logger.info("🎉 Done.")
+    print("\nDone.")
 
 # ─────────────────────────────────────────────────────────────
 # Run Script

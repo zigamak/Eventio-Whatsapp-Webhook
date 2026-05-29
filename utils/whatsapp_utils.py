@@ -4,7 +4,7 @@ import requests
 from datetime import datetime
 from config import (
     EVENTIO_ACCESS_TOKEN, ACCOUNT1_PHONE_ID_EVENTIO,
-    PACKAGE_ACCESS_TOKEN, ACCOUNT1_PHONE_ID_PACKAGE,
+    PACKAGE_ACCESS_TOKEN, ACCOUNT1_PHONE_ID_PACKAGE, ACCOUNT1_PHONE_ID_MWSMILE,
     ACCOUNT2_ACCESS_TOKEN, ACCOUNT2_PHONE_ID, VERSION
 )
 from utils.ai_responder import get_ai_response
@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 PHONE_ID_TO_TABLE = {
     ACCOUNT1_PHONE_ID_EVENTIO: 'public.eventio_messages',
     ACCOUNT1_PHONE_ID_PACKAGE: 'public.package_with_sense_messages',
+    ACCOUNT1_PHONE_ID_MWSMILE: 'public.mwsmile_messages',
     ACCOUNT2_PHONE_ID: 'public.ignitiohub_messages'
 }
 
@@ -24,6 +25,7 @@ PHONE_ID_TO_TABLE = {
 PHONE_ID_TO_TOKEN = {
     ACCOUNT1_PHONE_ID_EVENTIO: EVENTIO_ACCESS_TOKEN,
     ACCOUNT1_PHONE_ID_PACKAGE: PACKAGE_ACCESS_TOKEN,
+    ACCOUNT1_PHONE_ID_MWSMILE: PACKAGE_ACCESS_TOKEN,
     ACCOUNT2_PHONE_ID: ACCOUNT2_ACCESS_TOKEN
 }
 

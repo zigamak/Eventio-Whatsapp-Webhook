@@ -5,7 +5,8 @@ from utils.whatsapp_utils import (
 )
 from utils.db_manager import db_manager
 from config import (
-    VERIFY_TOKEN, ACCOUNT1_PHONE_ID_EVENTIO, ACCOUNT1_PHONE_ID_PACKAGE, ACCOUNT2_PHONE_ID
+    VERIFY_TOKEN, ACCOUNT1_PHONE_ID_EVENTIO, ACCOUNT1_PHONE_ID_PACKAGE,
+    ACCOUNT1_PHONE_ID_MWSMILE, ACCOUNT2_PHONE_ID
 )
 from datetime import datetime
 import logging
@@ -58,6 +59,12 @@ def package_with_sense():
     """Render Package with Sense page (now the default root page)."""
     logger.debug(f"Rendering package_with_sense page with phone_id: {ACCOUNT1_PHONE_ID_PACKAGE}")
     return render_template('index.html', phone_id=ACCOUNT1_PHONE_ID_PACKAGE)
+
+@bp.route('/mwsmile')
+def mwsmile():
+    """Render MWsmile page."""
+    logger.debug(f"Rendering mwsmile page with phone_id: {ACCOUNT1_PHONE_ID_MWSMILE}")
+    return render_template('mwsmile.html', phone_id=ACCOUNT1_PHONE_ID_MWSMILE)
 
 @bp.route('/ignitiohub')
 def ignitiohub():

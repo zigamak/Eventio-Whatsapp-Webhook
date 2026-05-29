@@ -253,6 +253,27 @@ class DatabaseManager:
                 """
             },
             {
+                'name': 'mwsmile_messages',
+                'schema': """
+                    CREATE TABLE {schema}.{name} (
+                        id VARCHAR(255) PRIMARY KEY,
+                        wa_id VARCHAR(255),
+                        name VARCHAR(255),
+                        type VARCHAR(50),
+                        body TEXT,
+                        timestamp TIMESTAMPTZ,
+                        direction VARCHAR(50),
+                        status VARCHAR(50),
+                        read BOOLEAN,
+                        image_url TEXT,
+                        image_id VARCHAR(255),
+                        error_details TEXT,
+                        event_id INTEGER,
+                        template_name VARCHAR(255)
+                    )
+                """
+            },
+            {
                 'name': 'ignitiohub_messages',
                 'schema': """
                     CREATE TABLE {schema}.{name} (
@@ -353,7 +374,7 @@ class DatabaseManager:
         Add error_details column to existing tables if it does not already exist.
         Called automatically on startup so existing deployments are migrated safely.
         """
-        tables = ['eventio_messages', 'package_with_sense_messages', 'ignitiohub_messages']
+        tables = ['eventio_messages', 'package_with_sense_messages', 'mwsmile_messages', 'ignitiohub_messages']
         for table in tables:
             try:
                 query = f"ALTER TABLE {schema}.{table} ADD COLUMN IF NOT EXISTS error_details TEXT"
@@ -367,7 +388,7 @@ class DatabaseManager:
         Add event_id and template_name columns to existing tables if missing.
         Called automatically on startup — safe to run repeatedly (IF NOT EXISTS).
         """
-        tables = ['eventio_messages', 'package_with_sense_messages', 'ignitiohub_messages']
+        tables = ['eventio_messages', 'package_with_sense_messages', 'mwsmile_messages', 'ignitiohub_messages']
         for table in tables:
             try:
                 self.execute_query(
