@@ -393,8 +393,14 @@ def log_outbound():
 def get_messages_since():
     """
     Bulk poll: up to `limit` messages for one phone_id, oldest first,
-    optionally only messages with timestamp > `since`. `since` omitted (or
+    optionally only messages with updated_at > `since`. `since` omitted (or
     blank) means "from the beginning" - used for a phone_id's first sync.
+
+    Filters/orders by updated_at (bumped on every status change by
+    update_message_status()), not timestamp (the original send/receive time,
+    which never changes) - so a message that goes sent -> delivered -> read
+    gets re-surfaced to the poller on each status change instead of being
+    permanently skipped once its timestamp falls behind the watermark.
     """
     phone_id = request.args.get('phone_id')
     since = request.args.get('since')
@@ -408,15 +414,15 @@ def get_messages_since():
 
         base_query = f"""
             SELECT id, wa_id, name, type, body, timestamp, direction,
-                   status, read, image_url, image_id, error_details, event_id, template_name
+                   status, read, image_url, image_id, error_details, event_id, template_name, updated_at
             FROM {table_name}
         """
 
         if since:
-            query = base_query + " WHERE timestamp > %s ORDER BY timestamp ASC LIMIT %s"
+            query = base_query + " WHERE updated_at > %s ORDER BY updated_at ASC LIMIT %s"
             params = (since, limit)
         else:
-            query = base_query + " ORDER BY timestamp ASC LIMIT %s"
+            query = base_query + " ORDER BY updated_at ASC LIMIT %s"
             params = (limit,)
 
         messages = db_manager.execute_query(query, params, fetch=True)

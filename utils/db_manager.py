@@ -326,8 +326,8 @@ class DatabaseManager:
         query = f"""
             INSERT INTO {table_name}
             (id, wa_id, name, type, body, timestamp, direction, status, read,
-             image_url, image_id, error_details, event_id, template_name)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             image_url, image_id, error_details, event_id, template_name, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (id) DO NOTHING
         """
         params = (
@@ -362,7 +362,7 @@ class DatabaseManager:
         """
         query = f"""
             UPDATE {table_name}
-            SET status = %s, read = %s, error_details = %s
+            SET status = %s, read = %s, error_details = %s, updated_at = NOW()
             WHERE id = %s
         """
         params = (status, read, error_details, message_id)
@@ -405,6 +405,31 @@ class DatabaseManager:
             except Exception as e:
                 logger.error(f"❌ Migration failed for {schema}.{table}: {e}")
 
+    def migrate_add_updated_at(self, schema='public'):
+        """
+        Add updated_at column to existing tables if missing, backfilled from
+        timestamp for existing rows. update_message_status() bumps this on
+        every status change (sent -> delivered -> read), so pollers can pick
+        up status-only changes on already-synced rows by watching updated_at
+        instead of timestamp (which never changes after the row is created).
+        Called automatically on startup - safe to run repeatedly (IF NOT EXISTS).
+        """
+        tables = ['eventio_messages', 'package_with_sense_messages', 'mwsmile_messages', 'ignitiohub_messages']
+        for table in tables:
+            try:
+                self.execute_query(
+                    f"ALTER TABLE {schema}.{table} ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ"
+                )
+                self.execute_query(
+                    f"UPDATE {schema}.{table} SET updated_at = timestamp WHERE updated_at IS NULL"
+                )
+                self.execute_query(
+                    f"CREATE INDEX IF NOT EXISTS idx_{table}_updated_at ON {schema}.{table}(updated_at)"
+                )
+                logger.info(f"✅ Migration OK — {schema}.{table}.updated_at")
+            except Exception as e:
+                logger.error(f"❌ Migration failed for {schema}.{table}: {e}")
+
     def __del__(self):
         """Destructor to ensure database connection is closed."""
         try:
@@ -430,6 +455,7 @@ try:
         # Migrate existing tables to add missing columns
         db_manager.migrate_add_error_details()
         db_manager.migrate_add_event_columns()
+        db_manager.migrate_add_updated_at()
     else:
         logger.error("❌ Database manager initialization failed - connection test failed")
         
