@@ -1,6 +1,7 @@
 import os
 import csv
-from datetime import date, timedelta
+import re
+from datetime import date
 from dotenv import load_dotenv
 
 import psycopg2
@@ -12,8 +13,23 @@ from psycopg2.extras import RealDictCursor
 
 load_dotenv()
 
-TODAY = date.today().isoformat()
-YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
+START_DATE = "2026-06-01"
+END_DATE = date.today().isoformat()
+
+# ─────────────────────────────────────────────────────────────
+# Phone number list
+# Matching is done using the LAST 10 DIGITS
+# ─────────────────────────────────────────────────────────────
+
+RAW_NUMBERS = """
+"""
+
+# Normalize phone numbers and keep the last 10 digits
+PHONE_SUFFIXES = sorted({
+    re.sub(r"\D", "", number.strip())[-10:]
+    for number in RAW_NUMBERS.splitlines()
+    if number.strip() and number.strip().lower() != "phone"
+})
 
 # ─────────────────────────────────────────────────────────────
 # Database Connection
@@ -30,64 +46,29 @@ def get_connection():
     )
 
 # ─────────────────────────────────────────────────────────────
-# Query 1 — Messages that FAILED
+# Query
+# Messages for supplied phone numbers
+# From June 1, 2026 until today
 # ─────────────────────────────────────────────────────────────
 
-QUERY_FAILED = f"""
-    SELECT
-        id,
-        wa_id,
-        name,
-        type,
-        body,
-        timestamp,
-        direction,
-        status,
-        error_details,
-        template_name,
-        event_id
-    FROM public.eventio_messages
-    WHERE status = 'failed'
-      AND timestamp >= '{YESTERDAY}'::timestamp
-      AND timestamp < ('{TODAY}'::timestamp + INTERVAL '1 day')
-    ORDER BY timestamp ASC;
-"""
-
-# ─────────────────────────────────────────────────────────────
-# Query 2 — All messages for wa_ids that have duplicate entries
-# (same number used more than once — same or different names)
-# ─────────────────────────────────────────────────────────────
-
-QUERY_DUPLICATES = f"""
-    SELECT
-        m.id,
-        m.wa_id,
-        m.name,
-        m.type,
-        m.body,
-        m.timestamp,
-        m.direction,
-        m.status,
-        m.error_details,
-        m.template_name,
-        m.event_id,
-        dup.total_entries,
-        dup.distinct_names,
-        dup.all_names
-    FROM public.eventio_messages m
-    INNER JOIN (
-        SELECT
-            wa_id,
-            COUNT(*)                                        AS total_entries,
-            COUNT(DISTINCT name)                            AS distinct_names,
-            STRING_AGG(DISTINCT name, ' / ' ORDER BY name) AS all_names
-        FROM public.eventio_messages
-        GROUP BY wa_id
-        HAVING COUNT(*) > 1
-    ) dup ON m.wa_id = dup.wa_id
-    WHERE m.timestamp >= '{YESTERDAY}'::timestamp
-      AND m.timestamp < ('{TODAY}'::timestamp + INTERVAL '1 day')
-    ORDER BY m.wa_id, m.timestamp ASC;
+QUERY = """
+SELECT
+    id,
+    wa_id,
+    name,
+    type,
+    body,
+    timestamp,
+    direction,
+    status,
+    error_details,
+    template_name,
+    event_id
+FROM public.eventio_messages
+WHERE
+    RIGHT(wa_id, 10) = ANY(%s)
+    AND timestamp::date BETWEEN %s AND %s
+ORDER BY wa_id, timestamp ASC;
 """
 
 # ─────────────────────────────────────────────────────────────
@@ -96,63 +77,54 @@ QUERY_DUPLICATES = f"""
 
 def export_csv(rows, filepath):
     if not rows:
-        print(f"  No rows — skipping {filepath}")
+        print(f"No rows found. Skipping {filepath}")
         return
 
-    fieldnames = rows[0].keys()
-    with open(filepath, mode="w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+    with open(filepath, "w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=rows[0].keys())
         writer.writeheader()
-        for row in rows:
-            writer.writerow(dict(row))
+        writer.writerows(rows)
 
-    print(f"  Exported {len(rows)} rows → {filepath}")
+    print(f"Exported {len(rows)} rows to {filepath}")
 
 # ─────────────────────────────────────────────────────────────
-# Main Function
+# Main
 # ─────────────────────────────────────────────────────────────
 
 def main():
+    print(f"Loaded {len(PHONE_SUFFIXES)} unique phone numbers.")
+    print(f"Date Range: {START_DATE} → {END_DATE}")
+
     try:
         conn = get_connection()
         print("Connected to database.")
     except Exception as e:
-        print(f"Failed to connect to database: {e}")
+        print(f"Database connection failed: {e}")
         return
 
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-
-            # --- Failed messages ---
-            print("\n[1/2] Fetching failed messages...")
-            try:
-                cur.execute(QUERY_FAILED)
-                failed_rows = cur.fetchall()
-            except Exception as e:
-                print(f"  Query failed: {e}")
-                failed_rows = []
-
-            # --- Duplicate wa_id messages ---
-            print("[2/2] Fetching duplicate wa_id messages...")
-            try:
-                cur.execute(QUERY_DUPLICATES)
-                duplicate_rows = cur.fetchall()
-            except Exception as e:
-                print(f"  Query failed: {e}")
-                duplicate_rows = []
-
+            print("Fetching messages...")
+            cur.execute(
+                QUERY,
+                (
+                    PHONE_SUFFIXES,
+                    START_DATE,
+                    END_DATE,
+                ),
+            )
+            rows = cur.fetchall()
+    except Exception as e:
+        print(f"Query failed: {e}")
+        rows = []
     finally:
         conn.close()
 
-    # --- Export ---
-    print("\nExporting CSVs...")
-    export_csv(failed_rows,    f"failed_messages_{YESTERDAY}_to_{TODAY}.csv")
-    export_csv(duplicate_rows, f"duplicate_wa_id_messages_{YESTERDAY}_to_{TODAY}.csv")
-
-    print("\nDone.")
+    export_csv(rows, "messages_june_1_2026_to_today.csv")
+    print("Done.")
 
 # ─────────────────────────────────────────────────────────────
-# Run Script
+# Run
 # ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

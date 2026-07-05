@@ -380,6 +380,53 @@ def log_outbound():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
+# ─── BULK POLLING ENDPOINT ─────────────────────────────────────────────────────
+# Used by cron/whatsapp_message_sync.php on the PHP side, which polls this
+# every ~minute per phone_id and mirrors rows into a local MySQL cache -
+# added because the PHP host doesn't have pdo_pgsql available, so it can't
+# connect to Postgres directly and needs an HTTP path instead. Unlike the
+# event-scoped endpoints below, this one is NOT scoped to a single event -
+# it returns messages across all events for one phone_id, since the PHP
+# poller is bulk-syncing the whole table incrementally.
+
+@bp.route('/api/messages', methods=['GET'])
+def get_messages_since():
+    """
+    Bulk poll: up to `limit` messages for one phone_id, oldest first,
+    optionally only messages with timestamp > `since`. `since` omitted (or
+    blank) means "from the beginning" - used for a phone_id's first sync.
+    """
+    phone_id = request.args.get('phone_id')
+    since = request.args.get('since')
+    try:
+        limit = min(int(request.args.get('limit', 2000)), 5000)
+
+        if not phone_id:
+            return jsonify({'status': 'error', 'message': 'phone_id required'}), 400
+
+        table_name = get_table_name(phone_id)
+
+        base_query = f"""
+            SELECT id, wa_id, name, type, body, timestamp, direction,
+                   status, read, image_url, image_id, error_details, event_id, template_name
+            FROM {table_name}
+        """
+
+        if since:
+            query = base_query + " WHERE timestamp > %s ORDER BY timestamp ASC LIMIT %s"
+            params = (since, limit)
+        else:
+            query = base_query + " ORDER BY timestamp ASC LIMIT %s"
+            params = (limit,)
+
+        messages = db_manager.execute_query(query, params, fetch=True)
+        return jsonify({'status': 'success', 'phone_id': phone_id, 'messages': messages})
+
+    except Exception as e:
+        logger.error(f"Error fetching messages since={since} for phone_id={phone_id}: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 # ─── EVENT-SCOPED ENDPOINTS ───────────────────────────────────────────────────
 # All routes below query by event_id so the PHP dashboard can pull
 # per-event WhatsApp data from Postgres without caring which table it's in.
