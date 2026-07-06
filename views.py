@@ -229,7 +229,8 @@ def respond():
         message = data.get('message')
         phone_id = data.get('phone_id')
         name = data.get('name', 'Unknown')
-        
+        event_id = data.get('event_id')  # ← from the whatsapp/index.php reply bar
+
         logger.info(f"=== RESPOND ENDPOINT CALLED ===")
         logger.info(f"wa_id: {wa_id}")
         logger.info(f"message: {message}")
@@ -267,7 +268,8 @@ def respond():
                 'status': 'sent',
                 'read': True,
                 'image_url': None,
-                'image_id': None
+                'image_id': None,
+                'event_id': int(event_id) if event_id else None,
             }
             
             logger.info(f"Saving message to database: {message_data}")
