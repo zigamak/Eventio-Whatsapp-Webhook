@@ -61,6 +61,35 @@ def get_token_for_phone_id(phone_id):
         logger.debug(f"Selected token for phone_id {phone_id}: {token[:20]}...")
     return token
 
+def get_last_outbound_event_id(db_manager, table_name, wa_id):
+    """
+    Look up the event_id of the most recent outbound message sent to this
+    wa_id in this table. Used to auto-link an inbound reply to whichever
+    event most recently messaged the guest - WhatsApp gives no other signal
+    for which event a plain-text reply belongs to, and in practice a guest
+    only replies after an event has messaged them, so the last outbound
+    event_id for that number is the correct one.
+
+    Returns None if this wa_id has never received an outbound message with
+    an event_id attached (e.g. an unsolicited message from an unknown
+    number) - inbound.event_id stays NULL in that case, same as before.
+    """
+    try:
+        rows = db_manager.execute_query(
+            f"""
+            SELECT event_id FROM {table_name}
+            WHERE wa_id = %s AND direction = 'outbound' AND event_id IS NOT NULL
+            ORDER BY timestamp DESC
+            LIMIT 1
+            """,
+            (wa_id,),
+            fetch=True
+        )
+        return rows[0]['event_id'] if rows else None
+    except Exception as e:
+        logger.error(f"Error looking up last outbound event_id for {wa_id}: {e}")
+        return None
+
 def save_message(db_manager, message_data, phone_id):
     """
     Save a message to the PostgreSQL database.
@@ -273,9 +302,10 @@ def process_image_message(db_manager, message_data, contact_info, phone_id):
     try:
         image_id = message_data.get('image', {}).get('id')
         mime_type = message_data.get('image', {}).get('mime_type')
-        
+
         image_url = download_whatsapp_image(image_id, phone_id)
-        
+        table_name = get_table_name(phone_id)
+
         message_info = {
             "id": message_data["id"],
             "wa_id": contact_info["wa_id"],
@@ -288,7 +318,7 @@ def process_image_message(db_manager, message_data, contact_info, phone_id):
             "read": False,
             "image_url": image_url,
             "image_id": image_id,
-            "event_id": None,
+            "event_id": get_last_outbound_event_id(db_manager, table_name, contact_info["wa_id"]),
             "template_name": None,
         }
         
@@ -375,7 +405,7 @@ def process_whatsapp_message(db_manager, body, phone_id):
                     "read": False,
                     "image_url": None,
                     "image_id": None,
-                    "event_id": None,       # linked later via /api/events/{id}/link-inbound
+                    "event_id": get_last_outbound_event_id(db_manager, table_name, wa_id),
                     "template_name": None,
                 }
                 save_message(db_manager, message_data, phone_id)
