@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export Messages</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand:        #452869;
+            --brand-dark:   #321d4f;
+            --brand-pale:   #ede8f5;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --border:       #e5e7eb;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--brand-pale);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-primary);
+            padding: 24px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,.08);
+            padding: 32px;
+            width: 100%;
+            max-width: 440px;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+        .back-link:hover { color: var(--brand); }
+        .card h1 {
+            font-size: 20px;
+            color: var(--brand);
+            margin-bottom: 4px;
+        }
+        .card p.sub {
+            color: var(--text-secondary);
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 6px;
+            margin-top: 18px;
+            color: var(--text-primary);
+        }
+        select, input[type=date] {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--text-primary);
+            background: #fff;
+        }
+        .row { display: flex; gap: 12px; }
+        .row > div { flex: 1; }
+        button {
+            width: 100%;
+            margin-top: 28px;
+            padding: 12px;
+            background: var(--brand);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        button:hover { background: var(--brand-dark); }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <a href="/" class="back-link">&larr; Back to inbox</a>
+        <h1>Export messages</h1>
+        <p class="sub">Download messages as a CSV for a business, direction, and date range.</p>
+        <form action="/api/export" method="get">
+            <label for="table">Business</label>
+            <select name="table" id="table" required>
+                {% for key, info in tables.items() %}
+                <option value="{{ key }}">{{ info[0] }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="direction">Direction</label>
+            <select name="direction" id="direction">
+                <option value="all">All</option>
+                <option value="inbound">Inbound only</option>
+                <option value="outbound">Outbound only</option>
+            </select>
+
+            <div class="row">
+                <div>
+                    <label for="start">From</label>
+                    <input type="date" name="start" id="start" required>
+                </div>
+                <div>
+                    <label for="end">To</label>
+                    <input type="date" name="end" id="end" required>
+                </div>
+            </div>
+
+            <button type="submit">Export CSV</button>
+        </form>
+    </div>
+</body>
+</html>

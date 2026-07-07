@@ -8,6 +8,8 @@ load_dotenv()
 
 # Import your blueprint from the views module
 from views import bp
+from apscheduler.schedulers.background import BackgroundScheduler
+from utils.digest import run_daily_digest
 
 # Configure logging for the application
 logging.basicConfig(
@@ -74,6 +76,17 @@ validate_env()
 
 # Create the application instance
 app = create_app()
+
+# Start the daily digest scheduler, once per process. When Flask's debug
+# reloader is active it spawns a child with WERKZEUG_RUN_MAIN=true; only
+# start there so the watcher parent process doesn't also fire it. The
+# digest_log claim table (see utils/digest.py) is the real safety net
+# against duplicate sends if gunicorn ever runs more than one worker.
+if not app.config['DEBUG'] or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+    scheduler = BackgroundScheduler(timezone='UTC')
+    scheduler.add_job(run_daily_digest, 'cron', hour=int(os.getenv('DIGEST_HOUR_UTC', 6)))
+    scheduler.start()
+    logging.info(f"Daily digest scheduler started (hour={os.getenv('DIGEST_HOUR_UTC', 6)} UTC)")
 
 if __name__ == "__main__":
     host = os.getenv('FLASK_HOST', '0.0.0.0')

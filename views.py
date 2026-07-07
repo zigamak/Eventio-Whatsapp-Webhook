@@ -1,20 +1,34 @@
-from flask import Blueprint, request, render_template, jsonify
+from flask import Blueprint, request, render_template, jsonify, Response
 from utils.whatsapp_utils import (
     process_whatsapp_message, send_message, send_image_message, 
     download_whatsapp_image, get_table_name, get_text_message_input
 )
 from utils.db_manager import db_manager
+from utils.digest import run_daily_digest
 from config import (
     VERIFY_TOKEN, ACCOUNT1_PHONE_ID_EVENTIO, ACCOUNT1_PHONE_ID_PACKAGE,
     ACCOUNT1_PHONE_ID_MWSMILE, ACCOUNT2_PHONE_ID
 )
 from datetime import datetime
+import csv
+import io
 import logging
 import base64
+import hmac
 import os
 from werkzeug.utils import secure_filename
 
 bp = Blueprint('whatsapp', __name__)
+
+# Business slug -> (display label, table name). Whitelist used by the export
+# page/endpoint so the table name in the SQL query is never taken directly
+# from user input.
+EXPORT_TABLES = {
+    'eventio': ('Eventio', 'public.eventio_messages'),
+    'package': ('Package with Sense', 'public.package_with_sense_messages'),
+    'mwsmile': ('MWsmile', 'public.mwsmile_messages'),
+    'ignitiohub': ('Ignitio Hub', 'public.ignitiohub_messages'),
+}
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
@@ -71,6 +85,11 @@ def ignitiohub():
     """Render Ignitio Hub page."""
     logger.debug(f"Rendering ignitiohub page with phone_id: {ACCOUNT2_PHONE_ID}")
     return render_template('ignitiohub.html', phone_id=ACCOUNT2_PHONE_ID)
+
+@bp.route('/export')
+def export_page():
+    """Render the message export page (pick a business, direction, date range)."""
+    return render_template('export.html', tables=EXPORT_TABLES)
 
 @bp.route('/send_message', methods=['POST'])
 def send_message_route():
@@ -667,3 +686,73 @@ def link_inbound_to_event(event_id):
     except Exception as e:
         logger.error(f"Error linking inbound messages for event_id={event_id}: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@bp.route('/api/digest/run-now', methods=['POST'])
+def run_digest_now():
+    """
+    Manually trigger the daily eventio_messages digest (for testing, or to
+    force a resend). Requires header X-Digest-Secret to match DIGEST_SECRET.
+    """
+    secret = os.getenv('DIGEST_SECRET')
+    provided = request.headers.get('X-Digest-Secret', '')
+    if not secret or not hmac.compare_digest(secret, provided):
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+
+    force = request.args.get('force', '').lower() in ('1', 'true')
+    summary = run_daily_digest(force=force)
+    return jsonify(summary)
+
+
+@bp.route('/api/export', methods=['GET'])
+def export_messages():
+    """
+    Export messages for one business as a CSV download, optionally filtered
+    by direction and always filtered to a date range (inclusive of the
+    `end` day). `table` is validated against the EXPORT_TABLES whitelist so
+    it's never interpolated into SQL from raw user input.
+    """
+    table_key = request.args.get('table')
+    direction = request.args.get('direction', 'all')
+    start = request.args.get('start')
+    end = request.args.get('end')
+
+    if table_key not in EXPORT_TABLES:
+        return jsonify({'status': 'error', 'message': 'Invalid or missing table'}), 400
+    if direction not in ('all', 'inbound', 'outbound'):
+        return jsonify({'status': 'error', 'message': 'Invalid direction'}), 400
+    if not start or not end:
+        return jsonify({'status': 'error', 'message': 'start and end dates are required (YYYY-MM-DD)'}), 400
+
+    label, table_name = EXPORT_TABLES[table_key]
+
+    query = f"""
+        SELECT id, wa_id, name, type, body, timestamp, direction, status, read, image_url, event_id
+        FROM {table_name}
+        WHERE timestamp >= %s AND timestamp < (%s::date + INTERVAL '1 day')
+    """
+    params = [start, end]
+    if direction != 'all':
+        query += " AND direction = %s"
+        params.append(direction)
+    query += " ORDER BY timestamp ASC"
+
+    try:
+        rows = db_manager.execute_query(query, tuple(params), fetch=True)
+    except Exception as e:
+        logger.error(f"Export query failed for {table_name}: {e}")
+        return jsonify({'status': 'error', 'message': 'Export query failed'}), 500
+
+    columns = ['id', 'wa_id', 'name', 'type', 'body', 'timestamp', 'direction', 'status', 'read', 'image_url', 'event_id']
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(columns)
+    for row in rows:
+        writer.writerow([row.get(c) for c in columns])
+
+    filename = f"{table_key}_{direction}_{start}_to_{end}.csv"
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )

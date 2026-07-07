@@ -405,6 +405,156 @@ class DatabaseManager:
             except Exception as e:
                 logger.error(f"❌ Migration failed for {schema}.{table}: {e}")
 
+    def get_recent_inbound_messages(self, table_name, hours=24):
+        """
+        Fetch inbound messages from the last `hours` for the given table.
+
+        Args:
+            table_name (str): Full table name including schema (e.g., 'public.eventio_messages')
+            hours (int): How many hours back to look (default: 24)
+        """
+        query = f"""
+            SELECT id, wa_id, name, body, timestamp
+            FROM {table_name}
+            WHERE direction = 'inbound' AND timestamp >= NOW() - INTERVAL '%s hours'
+            ORDER BY timestamp DESC
+        """
+        return self.execute_query(query, (hours,), fetch=True)
+
+    def create_digest_log_table_if_not_exists(self, schema='public'):
+        """Create the digest_log claim table used to prevent duplicate daily-digest sends."""
+        if not self.table_exists('digest_log', schema):
+            self.execute_query(f"""
+                CREATE TABLE {schema}.digest_log (
+                    run_date DATE PRIMARY KEY,
+                    sent_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            logger.info(f"Created table {schema}.digest_log")
+
+    def claim_digest_run(self, run_date, schema='public'):
+        """
+        Attempt to claim today's digest run. Returns True if this call won the
+        claim (i.e. no other process/worker has sent today's digest yet), False
+        otherwise. Prevents duplicate sends if multiple gunicorn workers each
+        run their own in-process scheduler.
+        """
+        self.create_digest_log_table_if_not_exists(schema)
+        result = self.execute_query(
+            f"INSERT INTO {schema}.digest_log (run_date) VALUES (%s) ON CONFLICT DO NOTHING RETURNING run_date",
+            (run_date,),
+            fetch=True
+        )
+        return bool(result)
+
+    def release_digest_claim(self, run_date, schema='public'):
+        """
+        Undo a claim_digest_run() claim after a failed send, so the job can
+        be retried the same day instead of being permanently blocked by its
+        own failed attempt.
+        """
+        self.execute_query(f"DELETE FROM {schema}.digest_log WHERE run_date = %s", (run_date,))
+
+    def get_conversation_context(self, table_name, wa_id, limit=10):
+        """Recent messages (both directions) for one contact, most recent first."""
+        query = f"""
+            SELECT direction, body, timestamp
+            FROM {table_name}
+            WHERE wa_id = %s
+            ORDER BY timestamp DESC
+            LIMIT %s
+        """
+        return self.execute_query(query, (wa_id, limit), fetch=True)
+
+    def create_message_rankings_table_if_not_exists(self, schema='public'):
+        """
+        Create the message_rankings table if missing. Stores the AI's
+        category/score/reason per message, keyed by message_id, so ranking
+        work survives a crash/restart mid-batch and reruns can skip messages
+        already ranked instead of re-calling the AI for them.
+        """
+        if not self.table_exists('message_rankings', schema):
+            self.execute_query(f"""
+                CREATE TABLE {schema}.message_rankings (
+                    message_id VARCHAR(255) PRIMARY KEY,
+                    wa_id VARCHAR(255),
+                    category VARCHAR(50),
+                    score INTEGER,
+                    reason TEXT,
+                    ranked_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            logger.info(f"Created table {schema}.message_rankings")
+
+    def get_existing_rankings(self, message_ids, schema='public'):
+        """Returns {message_id: {category, score, reason}} for any ids already ranked."""
+        if not message_ids:
+            return {}
+        self.create_message_rankings_table_if_not_exists(schema)
+        query = f"""
+            SELECT message_id, category, score, reason
+            FROM {schema}.message_rankings
+            WHERE message_id = ANY(%s)
+        """
+        rows = self.execute_query(query, (list(message_ids),), fetch=True)
+        return {
+            row['message_id']: {
+                'category': row['category'],
+                'score': row['score'],
+                'reason': row['reason'],
+            }
+            for row in rows
+        }
+
+    def upsert_rankings(self, rankings, schema='public'):
+        """
+        Batch-upsert AI rankings. `rankings` is a list of dicts with keys
+        message_id, wa_id, category, score, reason. Persisted immediately
+        after each ranked batch so partial progress is never lost.
+        """
+        if not rankings:
+            return
+        self.create_message_rankings_table_if_not_exists(schema)
+        values_sql = ", ".join(["(%s, %s, %s, %s, %s, NOW())"] * len(rankings))
+        params = []
+        for r in rankings:
+            params.extend([r['message_id'], r['wa_id'], r['category'], r['score'], r['reason']])
+
+        query = f"""
+            INSERT INTO {schema}.message_rankings (message_id, wa_id, category, score, reason, ranked_at)
+            VALUES {values_sql}
+            ON CONFLICT (message_id) DO UPDATE SET
+                wa_id = EXCLUDED.wa_id,
+                category = EXCLUDED.category,
+                score = EXCLUDED.score,
+                reason = EXCLUDED.reason,
+                ranked_at = NOW()
+        """
+        self.execute_query(query, tuple(params))
+
+    def migrate_message_rankings_table(self, schema='public'):
+        """
+        Ensure public.message_rankings exists with all expected columns,
+        adding any that are missing (IF NOT EXISTS). Mirrors the other
+        migrate_add_* methods so the digest job's storage self-heals on
+        startup the same way the message tables do.
+        """
+        try:
+            self.create_message_rankings_table_if_not_exists(schema)
+            for column, ddl in [
+                ('wa_id', 'VARCHAR(255)'),
+                ('category', 'VARCHAR(50)'),
+                ('score', 'INTEGER'),
+                ('reason', 'TEXT'),
+                ('ranked_at', 'TIMESTAMPTZ DEFAULT NOW()'),
+            ]:
+                self.execute_query(
+                    f"ALTER TABLE {schema}.message_rankings ADD COLUMN IF NOT EXISTS {column} {ddl}"
+                )
+            logger.info(f"✅ Migration OK — {schema}.message_rankings columns")
+        except Exception as e:
+            logger.error(f"❌ Migration failed for {schema}.message_rankings: {e}")
+
     def migrate_add_updated_at(self, schema='public'):
         """
         Add updated_at column to existing tables if missing, backfilled from
@@ -456,6 +606,7 @@ try:
         db_manager.migrate_add_error_details()
         db_manager.migrate_add_event_columns()
         db_manager.migrate_add_updated_at()
+        db_manager.migrate_message_rankings_table()
     else:
         logger.error("❌ Database manager initialization failed - connection test failed")
         
