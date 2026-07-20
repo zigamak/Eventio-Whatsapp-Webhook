@@ -699,7 +699,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
                 </svg>
-                <input type="text" id="search-input" placeholder="Search conversations…">
+                <input type="text" id="search-input" placeholder="Search name or number…">
             </div>
         </div>
 
@@ -1136,11 +1136,16 @@ document.getElementById('lightbox').addEventListener('click', e => {
 
 // ─── SEARCH ───────────────────────────────────────────────
 document.getElementById('search-input').addEventListener('input', e => {
-    const q = e.target.value.toLowerCase();
+    const raw = e.target.value.toLowerCase();
+    const digits = raw.replace(/\D/g, '');
     document.querySelectorAll('.chat-item').forEach(el => {
         const name    = el.querySelector('.chat-name')?.textContent.toLowerCase() || '';
         const preview = el.querySelector('.chat-preview')?.textContent.toLowerCase() || '';
-        el.style.display = (name.includes(q) || preview.includes(q)) ? '' : 'none';
+        const phone   = (el.dataset.waId || '').toLowerCase();
+        // Match by name/preview (text) OR phone number
+        const matchesText  = name.includes(raw) || preview.includes(raw);
+        const matchesPhone = digits ? phone.includes(digits) : false;
+        el.style.display = (matchesText || matchesPhone) ? '' : 'none';
     });
 });
 
