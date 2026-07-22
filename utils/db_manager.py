@@ -36,26 +36,25 @@ class DatabaseManager:
             f"host={host} port={port} dbname={dbname} user={user} password={password} "
             f"sslmode={sslmode} channel_binding={channel_binding}"
         )
-        self.conn = None
-        self.cursor = None
         self.max_retries = 3
         self.retry_delay = 1  # seconds
-        self.connect()
+        # Verify connectivity once at startup, then let the connection close so
+        # Neon can scale its compute to zero while the app is idle.
         self.create_tables_if_not_exists()
 
-    def connect(self):
-        """Establish a connection to the database with retry logic."""
+    def _new_connection(self):
+        """
+        Open a fresh short-lived connection with retry logic and return it.
+
+        Connections are intentionally NOT kept open between queries: holding a
+        persistent connection keeps Neon's compute awake 24/7. Opening per query
+        lets the compute scale to zero during idle periods (the app's normal
+        state between bursts of WhatsApp traffic).
+        """
         retry_count = 0
-        while retry_count < self.max_retries:
+        while True:
             try:
-                if self.conn:
-                    self.close()
-                
-                self.conn = psycopg2.connect(self.connection_string)
-                self.cursor = self.conn.cursor(cursor_factory=RealDictCursor)
-                logger.info(f"Successfully connected to database: {self.connection_string.split('dbname=')[1].split(' ')[0]}")
-                return
-                
+                return psycopg2.connect(self.connection_string)
             except psycopg2.Error as e:
                 retry_count += 1
                 logger.error(f"Failed to connect to database (attempt {retry_count}/{self.max_retries}): {e}")
@@ -65,113 +64,81 @@ class DatabaseManager:
                     logger.error(f"Failed to connect to database after {self.max_retries} attempts")
                     raise
 
-    def _ensure_connection(self):
-        """Ensure the database connection is active."""
-        try:
-            if not self.conn or self.conn.closed:
-                logger.info("Connection is closed, reconnecting...")
-                self.connect()
-            else:
-                # Test the connection
-                self.cursor.execute("SELECT 1")
-                self.conn.commit()
-        except psycopg2.Error:
-            logger.info("Connection test failed, reconnecting...")
-            self.connect()
-
     def close(self):
-        """Close the database connection and cursor."""
-        try:
-            if self.cursor:
-                self.cursor.close()
-                self.cursor = None
-            if self.conn:
-                self.conn.close()
-                self.conn = None
-                logger.info("Database connection closed")
-        except Exception as e:
-            logger.error(f"Error closing database connection: {e}")
-    
+        """No-op kept for backwards compatibility.
+
+        Connections are now short-lived and closed after each query, so there
+        is no persistent connection to tear down.
+        """
+        return
+
     def execute_query(self, query, params=None, fetch=False):
         """
         Execute a SQL query with optional parameters and retry logic.
-        
+
+        A fresh connection is opened for this call and closed before returning,
+        so no connection is held open between queries. This is inherently
+        thread-safe (no shared connection/cursor across gunicorn workers).
+
         Args:
             query (str): SQL query to execute.
             params (tuple): Parameters for the query (optional).
             fetch (bool): Whether to fetch results (default: False).
-        
+
         Returns:
             list or None: List of results if fetch=True, None otherwise.
         """
         retry_count = 0
         while retry_count < self.max_retries:
+            conn = None
             try:
-                self._ensure_connection()
-                
+                conn = self._new_connection()
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+
                 # Log the query (be careful with sensitive data)
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(f"Executing query: {query[:100]}..." if len(query) > 100 else query)
-                
-                self.cursor.execute(query, params)
-                self.conn.commit()
-                
+
+                cursor.execute(query, params)
+                conn.commit()
+
                 if fetch:
-                    results = self.cursor.fetchall()
+                    results = cursor.fetchall()
                     logger.debug(f"Query executed successfully, fetched {len(results)} rows")
                     return results
                 else:
                     logger.debug("Query executed successfully")
                     return None
-                    
+
             except psycopg2.Error as e:
                 retry_count += 1
-                error_msg = f"Database error (attempt {retry_count}/{self.max_retries}): {e}"
-                logger.error(error_msg)
-                
+                logger.error(f"Database error (attempt {retry_count}/{self.max_retries}): {e}")
+
                 if retry_count < self.max_retries:
-                    # Check if it's a connection issue that we can retry
+                    # Retry only transient connection issues; fail fast otherwise.
                     if any(err_code in str(e) for err_code in ['connection', 'server closed', 'terminated']):
                         logger.info("Connection error detected, retrying...")
                         time.sleep(self.retry_delay)
-                        try:
-                            self.conn.rollback()
-                        except:
-                            pass
-                        self.connect()
                     else:
-                        # Non-retryable error, don't retry
                         logger.error(f"Non-retryable error: {e}")
-                        try:
-                            self.conn.rollback()
-                        except:
-                            pass
                         raise
                 else:
                     logger.error(f"Failed to execute query after {self.max_retries} attempts")
-                    try:
-                        self.conn.rollback()
-                    except:
-                        pass
                     raise
-                    
+
             except Exception as e:
                 logger.error(f"Unexpected error executing query: {e}")
-                try:
-                    if self.conn:
-                        self.conn.rollback()
-                except:
-                    pass
                 raise
 
+            finally:
+                if conn is not None:
+                    conn.close()
+
     def test_connection(self):
-        """Test the database connection."""
+        """Test the database connection with a short-lived connection."""
         try:
-            self._ensure_connection()
-            self.cursor.execute("SELECT version()")
-            version = self.cursor.fetchone()
-            # RealDictCursor returns a dictionary, not a tuple
-            version_str = version['version'] if version else 'Unknown'
+            result = self.execute_query("SELECT version()", fetch=True)
+            version_str = result[0]['version'] if result else 'Unknown'
             logger.info(f"Database connection test successful. Version: {version_str}")
             return True
         except Exception as e:
