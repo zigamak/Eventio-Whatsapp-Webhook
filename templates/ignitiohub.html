@@ -37,6 +37,60 @@
             height: 100%;
             overflow: hidden;
         }
+
+        .tick-failed-hoverable {
+            position: relative;
+            cursor: help;
+            display: inline-flex;
+        }
+        .error-tooltip {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            right: -6px;
+            max-width: 260px;
+            width: max-content;
+            background: #1f2937;
+            color: #f3f4f6;
+            font-size: 12px;
+            line-height: 1.4;
+            border-radius: 8px;
+            padding: 8px 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,.25);
+            align-items: flex-start;
+            gap: 6px;
+            z-index: 20;
+            white-space: normal;
+            text-align: left;
+        }
+        .tick-failed-hoverable:hover .error-tooltip,
+        .error-tooltip.show {
+            display: flex;
+        }
+        .error-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            right: 10px;
+            border: 6px solid transparent;
+            border-top-color: #1f2937;
+        }
+        .error-tooltip-text { flex: 1; word-break: break-word; }
+        .error-tooltip-copy {
+            border: none;
+            background: rgba(255,255,255,.1);
+            color: #f3f4f6;
+            border-radius: 4px;
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .error-tooltip-copy:hover { background: rgba(255,255,255,.25); }
+        .error-tooltip-copy.copied { background: #16a34a; }
     </style>
 </head>
 <body class="bg-gray-100 font-sans">
@@ -251,6 +305,32 @@
             }
         }
 
+        // Escape text for safe HTML insertion
+        function escapeHtml(text) {
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
+        }
+
+        // Failed-message tick with hoverable error tooltip
+        function getFailedTickHTML(status, errorDetails) {
+            if ((status || '').toLowerCase() !== 'failed') return '';
+            const errText = (errorDetails || 'No error details available').toString();
+            return `<span class="tick-failed-hoverable text-red-500 ml-1" data-error="${escapeHtml(errText)}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                </svg>
+                <span class="error-tooltip">
+                    <span class="error-tooltip-text">${escapeHtml(errText)}</span>
+                    <button class="error-tooltip-copy" title="Copy error">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                        </svg>
+                    </button>
+                </span>
+            </span>`;
+        }
+
         // Display messages in the chat area
         function displayMessages(messages) {
             const messagesContainer = document.getElementById('messages-container');
@@ -276,15 +356,47 @@
                       }) 
                     : 'Unknown time';
                 
+                const failedTick = isSent ? getFailedTickHTML(msg.status, msg.error_details) : '';
+
                 messageElement.innerHTML = `
                     <div class="flex flex-col">
                         ${content}
-                        <div class="text-xs text-gray-500 mt-1 ${isSent ? 'text-right' : 'text-left'}">${time}</div>
+                        <div class="text-xs text-gray-500 mt-1 flex items-center ${isSent ? 'justify-end' : 'justify-start'}">${time}${failedTick}</div>
                     </div>
                 `;
                 messagesContainer.appendChild(messageElement);
             });
         }
+
+        // Failed-message error tooltip: tap to toggle, click copy to copy
+        document.getElementById('messages-container').addEventListener('click', async (e) => {
+            const copyBtn = e.target.closest('.error-tooltip-copy');
+            if (copyBtn) {
+                const wrap = copyBtn.closest('.tick-failed-hoverable');
+                const errText = wrap?.dataset.error || '';
+                try {
+                    await navigator.clipboard.writeText(errText);
+                    copyBtn.classList.add('copied');
+                    setTimeout(() => copyBtn.classList.remove('copied'), 1200);
+                } catch (err) {
+                    console.error('Could not copy error', err);
+                }
+                e.stopPropagation();
+                return;
+            }
+
+            const tickFailed = e.target.closest('.tick-failed-hoverable');
+            document.querySelectorAll('.error-tooltip.show').forEach(t => {
+                if (!tickFailed || t !== tickFailed.querySelector('.error-tooltip')) t.classList.remove('show');
+            });
+            if (tickFailed) {
+                tickFailed.querySelector('.error-tooltip')?.classList.toggle('show');
+                e.stopPropagation();
+            }
+        });
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.error-tooltip.show').forEach(t => t.classList.remove('show'));
+        });
 
         // Mark messages as read
         async function markMessagesAsRead(waId) {

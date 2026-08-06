@@ -479,6 +479,66 @@
         .tick-read   svg { fill: var(--tick-blue); }
         .tick-failed svg { fill: #ef4444; }
 
+        .tick-failed-hoverable {
+            position: relative;
+            cursor: help;
+        }
+
+        .error-tooltip {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 8px);
+            right: -6px;
+            max-width: 260px;
+            width: max-content;
+            background: #1f2937;
+            color: #f3f4f6;
+            font-size: 12px;
+            line-height: 1.4;
+            border-radius: 8px;
+            padding: 8px 10px;
+            box-shadow: var(--shadow-md);
+            align-items: flex-start;
+            gap: 6px;
+            z-index: 20;
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 400;
+            white-space: normal;
+            text-align: left;
+        }
+        .tick-failed-hoverable:hover .error-tooltip,
+        .error-tooltip.show {
+            display: flex;
+        }
+        .error-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            right: 10px;
+            border: 6px solid transparent;
+            border-top-color: #1f2937;
+        }
+        .error-tooltip-text {
+            flex: 1;
+            word-break: break-word;
+        }
+        .error-tooltip-copy {
+            border: none;
+            background: rgba(255,255,255,.1);
+            color: #f3f4f6;
+            border-radius: 4px;
+            width: 22px;
+            height: 22px;
+            flex-shrink: 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .15s;
+        }
+        .error-tooltip-copy:hover { background: rgba(255,255,255,.25); }
+        .error-tooltip-copy.copied { background: #16a34a; }
+
         /* ─── INPUT AREA ─────────────────────────── */
         .input-area {
             background: #f0f2f5;
@@ -811,19 +871,29 @@ function tickSVG(color, double = false) {
     </svg>`;
 }
 
-function getTickHTML(status, direction) {
+function getTickHTML(status, direction, errorDetails) {
     if (direction !== 'outbound') return '';
     switch ((status || '').toLowerCase()) {
         case 'read':
             return `<span class="tick tick-read" title="Read">${tickSVG('#34b7f1', true)}</span>`;
         case 'delivered':
             return `<span class="tick tick-double" title="Delivered">${tickSVG('#8c9aab', true)}</span>`;
-        case 'failed':
-            return `<span class="tick tick-failed" title="Failed">
+        case 'failed': {
+            const errText = (errorDetails || 'No error details available').toString();
+            return `<span class="tick tick-failed tick-failed-hoverable" data-error="${escapeHtml(errText)}">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="#ef4444">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
                 </svg>
+                <span class="error-tooltip">
+                    <span class="error-tooltip-text">${escapeHtml(errText)}</span>
+                    <button class="error-tooltip-copy" title="Copy error">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                        </svg>
+                    </button>
+                </span>
             </span>`;
+        }
         case 'sent':
         default:
             return `<span class="tick tick-single" title="Sent">${tickSVG('#8c9aab', false)}</span>`;
@@ -1028,7 +1098,7 @@ function renderMessages(messages) {
         const time = msg.timestamp ? formatTime(msg.timestamp) : '';
         inner += `<div class="bubble-footer">
             <span class="bubble-time">${time}</span>
-            ${getTickHTML(msg.status, msg.direction)}
+            ${getTickHTML(msg.status, msg.direction, msg.error_details)}
         </div>`;
 
         row.innerHTML = `<div class="bubble">${inner}</div>`;
@@ -1116,6 +1186,36 @@ async function sendImage(file) {
         showToast('Error sending image');
     }
 }
+
+// ─── FAILED-MESSAGE ERROR TOOLTIP ────────────────────────
+document.getElementById('messages-container').addEventListener('click', async e => {
+    const copyBtn = e.target.closest('.error-tooltip-copy');
+    if (copyBtn) {
+        const wrap = copyBtn.closest('.tick-failed-hoverable');
+        const errText = wrap?.dataset.error || '';
+        try {
+            await navigator.clipboard.writeText(errText);
+            copyBtn.classList.add('copied');
+            setTimeout(() => copyBtn.classList.remove('copied'), 1200);
+        } catch (err) {
+            showToast('Could not copy error');
+        }
+        e.stopPropagation();
+        return;
+    }
+
+    const tickFailed = e.target.closest('.tick-failed-hoverable');
+    document.querySelectorAll('.error-tooltip.show').forEach(t => {
+        if (!tickFailed || t !== tickFailed.querySelector('.error-tooltip')) t.classList.remove('show');
+    });
+    if (tickFailed) {
+        tickFailed.querySelector('.error-tooltip')?.classList.toggle('show');
+        e.stopPropagation();
+    }
+});
+document.addEventListener('click', () => {
+    document.querySelectorAll('.error-tooltip.show').forEach(t => t.classList.remove('show'));
+});
 
 // ─── LIGHTBOX ─────────────────────────────────────────────
 function openLightbox(src) {
