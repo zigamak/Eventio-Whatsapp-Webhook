@@ -44,5 +44,7 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 SMTP_SECURE = os.getenv("SMTP_SECURE", "tls")  # "ssl" (implicit TLS, e.g. port 465) or "tls" (STARTTLS, e.g. port 587)
 EMAIL_FROM = os.getenv("EMAIL_FROM", SMTP_USERNAME)
 EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "Eventio")
+# Automatic daily digest email is off unless DIGEST_ENABLED is truthy.
+DIGEST_ENABLED = os.getenv("DIGEST_ENABLED", "false").strip().lower() in ("1", "true", "yes", "on")
 DIGEST_HOUR_UTC = os.getenv("DIGEST_HOUR_UTC", "6")
 DIGEST_SECRET = os.getenv("DIGEST_SECRET")
